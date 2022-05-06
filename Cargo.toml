@@ -1,0 +1,22 @@
+[package]
+name = "envoy"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+rustls = "*"
+webpki-roots = "*"
+serde = { version = "*", features = ["derive"], optional = true }
+chrono = "*"
+serde_json = {version = "*", optional = true}
+base64 = "*"
+convert_case = {version = "*", optional = true}
+
+
+[features]
+default = ["rest"]
+rest = ["serde_json", "serde"]
+multihost = []
+http2 = []
+interpreter = ["rest", "convert_case"]
