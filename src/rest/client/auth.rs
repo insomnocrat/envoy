@@ -7,7 +7,6 @@ use crate::rest::{Error, ErrorKind, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub(crate) const AUTHORIZATION: &[u8; 13] = b"Authorization";
 pub(crate) const BASIC: &[u8; 6] = b"Basic ";
 pub(crate) const BEARER: &[u8; 7] = b"Bearer ";
 const CLIENT_ID: &str = "client_id";
@@ -338,7 +337,7 @@ impl Grant {
     pub fn new(
         mut credentials: Credentials,
         scope: Option<String>,
-        use_parent_auth_as_basid: bool,
+        use_parent_auth_as_basic: bool,
     ) -> Self {
         let param = credentials.kind.to_grant();
         let param = match param.eq("unknown") {
@@ -358,7 +357,7 @@ impl Grant {
         Self {
             credentials,
             scope,
-            use_parent_auth_as_basic: use_parent_auth_as_basid,
+            use_parent_auth_as_basic,
         }
     }
 }

@@ -20,6 +20,16 @@ fn print_results(results: Vec<time::Duration>) {
 }
 
 #[test]
+fn get_single_user_bare() {
+    let mut client = dummy_api_client();
+    let start = time::Instant::now();
+    let response = client.get("data/v1/user").send().unwrap();
+    let _end = time::Instant::now().duration_since(start);
+    assert!(response.is_ok());
+    println!("Total Time: {_end:#?}");
+}
+
+#[test]
 fn get_user() {
     let mut results = Vec::with_capacity(100);
     let mut client = dummy_api_client();
@@ -100,9 +110,9 @@ fn post_and_delete() {
     let mut results = Vec::with_capacity(100);
     let mut client = dummy_api_client();
     let mut user = User::default();
-    user.first_name = "A Pal".to_string();
-    user.last_name = "A Gal".to_string();
-    user.email = "random_email@randomemails.com".to_string();
+    user.first_name = "Father".to_string();
+    user.last_name = "Dougal".to_string();
+    user.email = "random_email@urrland.com".to_string();
     user.date_of_birth = "1/1/1900".to_string();
     for _ in 0..101 {
         let start = time::Instant::now();

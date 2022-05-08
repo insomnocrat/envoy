@@ -6,6 +6,7 @@ pub const LF: u8 = 0x0a;
 pub const CR: u8 = 0x0d;
 pub const SP: u8 = 0x20;
 pub const CHUNK_END: &str = "\r\n0\r\n\r\n";
+pub const FINAL_CHUNK: &[u8] = b"0\r\n\r\n";
 pub const CRLF: &[u8; 2] = b"\r\n";
 pub const DANGLING_CHUNK: &[u8; 3] = b"\r\n0";
 pub const HEX_DIGITS: [u8; 22] = [

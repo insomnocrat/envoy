@@ -4,8 +4,8 @@ use std::string::FromUtf8Error;
 
 #[derive(Debug)]
 pub struct Error {
-    pub(crate) kind: ErrorKind,
-    pub(crate) message: String,
+    pub kind: ErrorKind,
+    pub message: String,
 }
 
 impl Error {
@@ -14,6 +14,26 @@ impl Error {
             message: message.to_string(),
             kind,
         }
+    }
+    
+    pub fn server(message: &str) -> Self {
+        Self::new(message, ErrorKind::Server)
+    }
+
+    pub fn client(message: &str) -> Self {
+        Self::new(message, ErrorKind::Client)
+    }
+
+    pub fn user(message: &str) -> Self {
+        Self::new(message, ErrorKind::User)
+    }
+    
+    pub fn connection(message: &str, source: Option<Box<dyn Any + Send>>) -> Self {
+        Self::new(message, ErrorKind::Connection(source))
+    }
+
+    pub fn thread(message: &str, source: Option<Box<dyn Any + Send>>) -> Self {
+        Self::new(message, ErrorKind::Thread(source))
     }
 }
 

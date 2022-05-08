@@ -4,7 +4,11 @@ pub mod buffer;
 pub mod client;
 pub mod connection;
 pub mod error;
+mod http1;
+#[cfg(feature = "http2")]
+mod http2;
 pub mod pool;
+mod proto_stream;
 pub mod request;
 #[cfg(test)]
 mod tests;

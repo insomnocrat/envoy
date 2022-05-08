@@ -1,26 +1,27 @@
 #[cfg(multihost)]
 use super::pool::HostPool;
-use super::{connection::ManagedConnection, request::Request, Response, Result};
+use super::{connection::Connection, request::Http1Request, Response, Result};
 
 pub struct Client {
-    connection: Option<ManagedConnection>,
+    connection: Option<Connection>,
 }
 impl Client {
     pub fn new() -> Self {
         Self { connection: None }
     }
 
-    pub fn execute(&mut self, request: Request) -> Result<Response> {
+    pub fn execute(&mut self, request: Http1Request) -> Result<Response> {
         let host = request.host();
-        let hostname = request.hostname();
-        let connection = self
-            .connection
-            .get_or_insert(ManagedConnection::new(&host, hostname)?);
+        let connection = match &mut self.connection {
+            Some(conn) => conn,
+            None => self.connection.insert(Connection::new(&host)?),
+        };
         if !connection.host.eq(&host) {
             connection.join_thread();
-            *connection = ManagedConnection::new(&host, hostname)?;
+            *connection = Connection::new(&host)?;
         }
         connection.send_request(request)?;
+
         connection.check_response()
     }
 }
@@ -37,7 +38,7 @@ impl ClientMultiHost {
         }
     }
 
-    pub fn execute(&mut self, request: Request) -> Result<Response> {
+    pub fn execute(&mut self, request: Http1Request) -> Result<Response> {
         self.pool.send_request(request)?;
         self.pool.fetch_response()
     }

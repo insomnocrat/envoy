@@ -1,9 +1,9 @@
-pub use crate::http::request::Request as InnerRequest;
+use crate::http::request::headers::AUTHORIZATION;
+pub use crate::http::request::Http1Request as InnerRequest;
 pub use crate::http::request::RequestBuilder;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::client::{
-    auth::AccessTokenResponse, auth::AUTHORIZATION, auth::BASIC, auth::BEARER, AuthMethod,
-    AuthPlacement, Success,
+    auth::AccessTokenResponse, auth::BASIC, auth::BEARER, AuthMethod, AuthPlacement, Success,
 };
 use crate::rest::error::SomeError;
 use crate::{
@@ -23,10 +23,9 @@ impl<'a> Request<'a> {
     pub fn send(mut self) -> Result<Response> {
         self.set_auth()?;
         self.set_required_headers();
-
         match self.client_ref.will_retry() {
             true => self.client_ref.try_execute(self.inner),
-            false => self.client_ref.execute(self.inner.build()),
+            false => self.client_ref.execute(self.inner.build_http1()),
         }
     }
 
@@ -238,7 +237,7 @@ impl<'a> Request<'a> {
         let response: Result<Response> = Response::from(
             client_ref
                 .inner
-                .execute(auth_request.build())
+                .execute(auth_request.build_http1())
                 .map_err(|e| Error::from(e))?,
         )
         .into();

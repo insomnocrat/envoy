@@ -1,4 +1,4 @@
-use super::{connection::ManagedConnection, request::Request, Error, Response, Result, Success};
+use super::{connection::Connection, request::Http1Request, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 
 pub struct HostPool {
     inner: Option<JoinHandle<()>>,
-    request_tx: Sender<Request>,
+    request_tx: Sender<Http1Request>,
     response_rx: Receiver<Result<Response>>,
 }
 
@@ -21,20 +21,23 @@ impl HostPool {
         }
     }
 
-    pub fn spawn_pool() -> (JoinHandle<()>, Sender<Request>, Receiver<Result<Response>>) {
+    pub fn spawn_pool() -> (
+        JoinHandle<()>,
+        Sender<Http1Request>,
+        Receiver<Result<Response>>,
+    ) {
         let (request_tx, request_rx) = channel();
         let (response_tx, response_rx) = channel();
         let thread = thread::spawn(move || {
             let mut pool = Pool::new(response_tx);
             let request_rx = request_rx;
             loop {
-                let request: Request = request_rx.recv().unwrap();
+                let request: Http1Request = request_rx.recv().unwrap();
                 let host = request.host();
-                let hostname = request.hostname();
-                let connection = pool.host(&host, hostname);
+                let connection = pool.host(&host);
                 let connection = match connection {
                     Ok(i) => i,
-                    Err(_e) => pool.host(&host, hostname).unwrap(),
+                    Err(_e) => pool.host(&host).unwrap(),
                 };
                 if let Err(e) = connection.send_request(request) {
                     pool.clear_connections();
@@ -53,7 +56,7 @@ impl HostPool {
         (thread, request_tx, response_rx)
     }
 
-    pub fn send_request(&mut self, request: Request) -> Success {
+    pub fn send_request(&mut self, request: Http1Request) -> Success {
         if let Err(_) = self.request_tx.send(request) {
             let executor = self.inner.take();
             if let Some(executor) = executor {
@@ -88,7 +91,7 @@ impl HostPool {
 }
 
 pub struct Pool {
-    map: HashMap<String, ManagedConnection>,
+    map: HashMap<String, Connection>,
     pub response_tx: Sender<Result<Response>>,
 }
 
@@ -99,15 +102,15 @@ impl Pool {
             response_tx,
         }
     }
-    pub fn spawn_connection(addr: &str, hostname: &str) -> Result<ManagedConnection> {
-        ManagedConnection::new(addr, hostname)
+    pub fn spawn_connection(addr: &str) -> Result<Connection> {
+        Connection::new(addr)
     }
 
-    pub fn host(&mut self, addr: &str, hostname: &str) -> Result<&mut ManagedConnection> {
+    pub fn host(&mut self, addr: &str) -> Result<&mut Connection> {
         let connection = self
             .map
             .entry(addr.to_string())
-            .or_insert(Self::spawn_connection(&addr, hostname)?);
+            .or_insert(Self::spawn_connection(&addr)?);
         match connection.is_active() {
             true => Ok(connection),
             false => Err(Error::new(

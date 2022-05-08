@@ -2,6 +2,12 @@
 name = "envoy"
 version = "0.1.0"
 edition = "2021"
+authors = ["James Roark <insomnocrat@gmail.com>"]
+license = "Apache-2.0"
+homepage = "https://github.com/insomnocrat/envoy"
+repository = "https://github.com/insomnocrat/envoy"
+keywords = ["http", "api", "web", "json", "parse"]
+categories = ["Authentication", "Network programming", "Rust patterns", "Web programming", "API bindings"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
@@ -12,6 +18,7 @@ chrono = "*"
 serde_json = {version = "*", optional = true}
 base64 = "*"
 convert_case = {version = "*", optional = true}
+hpack = "*"
 
 
 [features]
