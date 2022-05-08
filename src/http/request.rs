@@ -36,15 +36,6 @@ impl Http2Request {
     }
 }
 
-impl Http1Request {
-    pub fn host(&self) -> String {
-        format!("{}:443", &self.host)
-    }
-    pub fn hostname(&self) -> &str {
-        &self.host
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct RequestBuilder {
     pub protocol: Protocol,
@@ -211,10 +202,6 @@ impl RequestBuilder {
     pub fn body(&mut self, body: &[u8]) {
         self.body = Some(body.to_vec());
     }
-
-    pub(crate) fn template(&self) -> Http1Request {
-        self.clone().build_http1()
-    }
 }
 
 const SCHEME: &[u8] = b"https://";
@@ -225,6 +212,12 @@ const SLASH: u8 = 0x2f;
 pub struct Url {
     pub host: Vec<u8>,
     pub resource: Vec<u8>,
+}
+
+impl Url {
+    pub(crate) fn authority(&self) -> String {
+        format!("{}:443", self.host.utf8_lossy())
+    }
 }
 
 impl From<&[u8]> for Url {

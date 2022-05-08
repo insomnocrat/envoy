@@ -1,28 +1,31 @@
 use super::proto_stream::ProtoStream;
-use super::{request::Http1Request, Error, ErrorKind, Response, Result, Success};
-use crate::http::http1::stream::Http1Stream;
+use super::{Error, ErrorKind, Response, Result, Success};
+use std::marker::PhantomData;
 // #[cfg(feature = "http2")]
 // use crate::http::http2::stream::Http2Stream;
+use crate::http::request::RequestBuilder;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
 #[derive(Debug)]
-pub struct Connection {
+pub struct Connection<S: ProtoStream> {
     pub host: String,
-    pub request_tx: Sender<Http1Request>,
+    pub request_tx: Sender<RequestBuilder>,
     pub response_rx: Receiver<Result<Response>>,
     pub status: Arc<Mutex<ConnectionStatus>>,
     thread: Option<JoinHandle<()>>,
+    _stream: PhantomData<S>,
 }
 
-impl Connection {
+impl<S: 'static + ProtoStream> Connection<S> {
     pub fn new(authority: &str) -> Result<Self> {
         let timeout = std::time::Duration::from_secs(30);
-        let (request_tx, request_rx): (Sender<Http1Request>, Receiver<Http1Request>) = channel();
+        let (request_tx, request_rx): (Sender<RequestBuilder>, Receiver<RequestBuilder>) =
+            channel();
         let (response_tx, response_rx) = channel();
-        let mut stream = Http1Stream::connect(authority)?;
+        let mut stream = S::connect(authority)?;
         stream.handshake()?;
         let status = Arc::new(Mutex::new(ConnectionStatus::ACTIVE));
         stream.inner().sock.set_read_timeout(Some(timeout)).unwrap();
@@ -34,14 +37,15 @@ impl Connection {
             response_rx,
             thread: Some(thread),
             status,
+            _stream: PhantomData,
         })
     }
 
     fn spawn_thread(
-        stream: Http1Stream,
+        stream: S,
         status: Arc<Mutex<ConnectionStatus>>,
         timeout: std::time::Duration,
-        request_rx: Receiver<Http1Request>,
+        request_rx: Receiver<RequestBuilder>,
         response_tx: Sender<Result<Response>>,
     ) -> JoinHandle<()> {
         thread::spawn(move || {
@@ -57,7 +61,7 @@ impl Connection {
                         break 'inner;
                     }
                 };
-                let response = connection.write_request(&request.message);
+                let response = connection.send_request(request);
                 if let Err(_e) = response_tx.send(response) {
                     let mut s = status.lock().unwrap();
                     *s = ConnectionStatus::DEAD;
@@ -77,7 +81,7 @@ impl Connection {
         }
     }
 
-    pub fn send_request(&mut self, request: Http1Request) -> Success {
+    pub fn send_request(&mut self, request: RequestBuilder) -> Success {
         self.request_tx.send(request).map_err(|e| {
             Error::new(
                 "could not send request",

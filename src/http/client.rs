@@ -1,17 +1,19 @@
 #[cfg(multihost)]
 use super::pool::HostPool;
-use super::{connection::Connection, request::Http1Request, Response, Result};
+use super::{connection::Connection, Response, Result};
+use crate::http::http1::stream::Http1Stream;
+use crate::http::request::RequestBuilder;
 
 pub struct Client {
-    connection: Option<Connection>,
+    connection: Option<Connection<Http1Stream>>,
 }
 impl Client {
     pub fn new() -> Self {
         Self { connection: None }
     }
 
-    pub fn execute(&mut self, request: Http1Request) -> Result<Response> {
-        let host = request.host();
+    pub fn execute(&mut self, request: RequestBuilder) -> Result<Response> {
+        let host = request.url.authority();
         let connection = match &mut self.connection {
             Some(conn) => conn,
             None => self.connection.insert(Connection::new(&host)?),
@@ -38,7 +40,7 @@ impl ClientMultiHost {
         }
     }
 
-    pub fn execute(&mut self, request: Http1Request) -> Result<Response> {
+    pub fn execute(&mut self, request: RequestBuilder) -> Result<Response> {
         self.pool.send_request(request)?;
         self.pool.fetch_response()
     }

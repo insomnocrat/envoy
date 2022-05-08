@@ -1,4 +1,6 @@
 use super::{error::SomeError, Error, Result, Success};
+use crate::http::request::RequestBuilder;
+use crate::http::Response;
 use rustls::client::InvalidDnsNameError;
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
@@ -8,13 +10,13 @@ use std::sync::Arc;
 
 pub(crate) type Inner = TlsStream<TlsClient, TcpStream>;
 
-pub trait ProtoStream: Sized {
+pub trait ProtoStream: Sized + Send {
     const ALPN_PROTOCOLS: Option<&'static [&'static [u8]]> = None;
 
-    fn connect(addr: &str) -> Result<Self> {
-        let stream = TcpStream::connect(addr)?;
+    fn connect(authority: &str) -> Result<Self> {
+        let stream = TcpStream::connect(authority)?;
         let tls_client =
-            Self::config_tls(addr.trim_end_matches(|c: char| c == ':' || c.is_numeric()))?;
+            Self::config_tls(authority.trim_end_matches(|c: char| c == ':' || c.is_numeric()))?;
         let stream = TlsStream::new(tls_client, stream);
         let mut proto_stream = Self::new(stream);
         proto_stream.handshake()?;
@@ -26,7 +28,7 @@ pub trait ProtoStream: Sized {
 
     fn new(stream: Inner) -> Self;
 
-    fn config_tls(hostname: &str) -> Result<TlsClient> {
+    fn config_tls(host: &str) -> Result<TlsClient> {
         let mut root_store = rustls::RootCertStore::empty();
         root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
             rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
@@ -48,7 +50,7 @@ pub trait ProtoStream: Sized {
 
         TlsClient::new(
             rc_config,
-            hostname.try_into().map_err(|e: InvalidDnsNameError| {
+            host.try_into().map_err(|e: InvalidDnsNameError| {
                 Error::connection("invalid host address", e.to_string().some_box())
             })?,
         )
@@ -87,4 +89,6 @@ pub trait ProtoStream: Sized {
     }
 
     fn empty_buffer() -> Vec<u8>;
+
+    fn send_request(&mut self, request: RequestBuilder) -> Result<Response>;
 }

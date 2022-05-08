@@ -1,15 +1,15 @@
-use crate::http::request::{Http1Request, RequestBuilder};
+use crate::http::request::RequestBuilder;
 use crate::HttpClient;
 use std::time;
 
-fn gen_test_request(res: &str) -> Http1Request {
+fn gen_test_request(res: &str) -> RequestBuilder {
     let mut request = RequestBuilder::get(&format!("jsonplaceholder.typicode.com/{res}"));
     request.headers(vec![(b"Accept", b"/*/"), (b"Connection", b"keep-alive")]);
 
-    request.build_http1()
+    request
 }
 
-fn gen_test_request_2(res: &str) -> Http1Request {
+fn gen_test_request_2(res: &str) -> RequestBuilder {
     let mut request = RequestBuilder::get(&format!("dummyapi.io/data/v1/{res}"));
     request.headers(vec![
         (b"Accept", b"/*/"),
@@ -17,7 +17,7 @@ fn gen_test_request_2(res: &str) -> Http1Request {
         (b"app-id", b"623e3f74a76d8facdad7758b"),
     ]);
 
-    request.build_http1()
+    request
 }
 
 #[test]

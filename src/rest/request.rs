@@ -1,6 +1,5 @@
 use crate::http::request::headers::AUTHORIZATION;
-pub use crate::http::request::Http1Request as InnerRequest;
-pub use crate::http::request::RequestBuilder;
+pub use crate::http::request::RequestBuilder as InnerRequest;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::client::{
     auth::AccessTokenResponse, auth::BASIC, auth::BEARER, AuthMethod, AuthPlacement, Success,
@@ -15,7 +14,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
 pub struct Request<'a> {
-    pub(crate) inner: RequestBuilder,
+    pub(crate) inner: InnerRequest,
     client_ref: &'a mut RestClient,
 }
 
@@ -25,7 +24,7 @@ impl<'a> Request<'a> {
         self.set_required_headers();
         match self.client_ref.will_retry() {
             true => self.client_ref.try_execute(self.inner),
-            false => self.client_ref.execute(self.inner.build_http1()),
+            false => self.client_ref.execute(self.inner),
         }
     }
 
@@ -45,7 +44,7 @@ impl<'a> Request<'a> {
         self.expect_json()
     }
 
-    pub(crate) fn new(inner: RequestBuilder, client_ref: &'a mut RestClient) -> Self {
+    pub(crate) fn new(inner: InnerRequest, client_ref: &'a mut RestClient) -> Self {
         Self { inner, client_ref }
     }
 
@@ -119,7 +118,7 @@ impl<'a> Request<'a> {
         self.inner.header((&header, &value));
     }
 
-    fn set_basic_auth(request: &mut RequestBuilder, username: &str, password: Option<&str>) {
+    fn set_basic_auth(request: &mut InnerRequest, username: &str, password: Option<&str>) {
         let (header, value) = Self::encode_basic_auth(
             username.as_bytes(),
             password.map(|p| p.as_bytes()).unwrap_or_default(),
@@ -127,7 +126,7 @@ impl<'a> Request<'a> {
         request.header((&header, &value))
     }
 
-    fn set_bearer_auth(request: &mut RequestBuilder, token: &str) {
+    fn set_bearer_auth(request: &mut InnerRequest, token: &str) {
         let mut value = BEARER.to_vec();
         value.extend(encode(token).as_bytes());
         request.header((AUTHORIZATION, &value));
@@ -197,7 +196,7 @@ impl<'a> Request<'a> {
             None => return Ok(()),
         };
         let mut auth_request = match &auth.method {
-            AuthMethod::BEARER => RequestBuilder::post(&auth.url),
+            AuthMethod::BEARER => InnerRequest::post(&auth.url),
             _ => return Ok(()),
         };
         let credentials = match &auth.grant {
@@ -237,7 +236,7 @@ impl<'a> Request<'a> {
         let response: Result<Response> = Response::from(
             client_ref
                 .inner
-                .execute(auth_request.build_http1())
+                .execute(auth_request)
                 .map_err(|e| Error::from(e))?,
         )
         .into();

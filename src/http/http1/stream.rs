@@ -1,5 +1,6 @@
 use crate::http::buffer::Buffer;
 use crate::http::proto_stream::{Inner, ProtoStream};
+use crate::http::request::RequestBuilder;
 use crate::http::utf8::{CHUNK_END, CR, FINAL_CHUNK, LF, UTF8};
 use crate::http::{Error, Response, Result, Success};
 use std::collections::HashMap;
@@ -28,16 +29,16 @@ impl ProtoStream for Http1Stream {
     fn empty_buffer() -> Vec<u8> {
         vec![0; Http1Stream::DEFAULT_BUFFER]
     }
+
+    fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
+        self.inner.write_all(&request.build_http1().message)?;
+
+        self.assess_response()
+    }
 }
 
 impl Http1Stream {
     pub const DEFAULT_BUFFER: usize = 8032;
-
-    pub fn write_request(&mut self, message: &[u8]) -> Result<Response> {
-        self.inner.write_all(message)?;
-
-        self.assess_response()
-    }
 
     pub fn assess_response(&mut self) -> Result<Response> {
         let mut buffer = Self::empty_buffer();

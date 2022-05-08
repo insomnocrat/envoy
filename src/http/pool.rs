@@ -1,5 +1,9 @@
-use super::{connection::Connection, request::Http1Request, Error, Response, Result, Success};
+use super::{connection::Connection, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
+use crate::http::http1::stream::Http1Stream;
+use crate::http::proto_stream::ProtoStream;
+use crate::http::request::RequestBuilder;
+use crate::http::utf8::UTF8;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
@@ -7,7 +11,7 @@ use std::thread::JoinHandle;
 
 pub struct HostPool {
     inner: Option<JoinHandle<()>>,
-    request_tx: Sender<Http1Request>,
+    request_tx: Sender<RequestBuilder>,
     response_rx: Receiver<Result<Response>>,
 }
 
@@ -23,7 +27,7 @@ impl HostPool {
 
     pub fn spawn_pool() -> (
         JoinHandle<()>,
-        Sender<Http1Request>,
+        Sender<RequestBuilder>,
         Receiver<Result<Response>>,
     ) {
         let (request_tx, request_rx) = channel();
@@ -32,8 +36,8 @@ impl HostPool {
             let mut pool = Pool::new(response_tx);
             let request_rx = request_rx;
             loop {
-                let request: Http1Request = request_rx.recv().unwrap();
-                let host = request.host();
+                let request: RequestBuilder = request_rx.recv().unwrap();
+                let host = request.url.host.utf8().unwrap();
                 let connection = pool.host(&host);
                 let connection = match connection {
                     Ok(i) => i,
@@ -56,7 +60,7 @@ impl HostPool {
         (thread, request_tx, response_rx)
     }
 
-    pub fn send_request(&mut self, request: Http1Request) -> Success {
+    pub fn send_request(&mut self, request: RequestBuilder) -> Success {
         if let Err(_) = self.request_tx.send(request) {
             let executor = self.inner.take();
             if let Some(executor) = executor {
@@ -90,23 +94,23 @@ impl HostPool {
     }
 }
 
-pub struct Pool {
-    map: HashMap<String, Connection>,
+pub struct Pool<T: ProtoStream> {
+    map: HashMap<String, Connection<T>>,
     pub response_tx: Sender<Result<Response>>,
 }
 
-impl Pool {
+impl Pool<Http1Stream> {
     pub fn new(response_tx: Sender<Result<Response>>) -> Self {
         Self {
             map: HashMap::with_capacity(4),
             response_tx,
         }
     }
-    pub fn spawn_connection(addr: &str) -> Result<Connection> {
+    pub fn spawn_connection(addr: &str) -> Result<Connection<Http1Stream>> {
         Connection::new(addr)
     }
 
-    pub fn host(&mut self, addr: &str) -> Result<&mut Connection> {
+    pub fn host(&mut self, addr: &str) -> Result<&mut Connection<Http1Stream>> {
         let connection = self
             .map
             .entry(addr.to_string())

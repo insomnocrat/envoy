@@ -8,7 +8,7 @@ use interpreter::Interpreter;
 
 pub use crate::rest::client::config::Config;
 use crate::rest::{
-    request::{InnerRequest, Request, RequestBuilder},
+    request::{InnerRequest, Request},
     response::Response,
     Error, Result,
 };
@@ -59,9 +59,8 @@ impl Client {
         !self.config.backoff_proc.retry_codes.is_empty()
     }
 
-    pub fn try_execute(&mut self, request: RequestBuilder) -> Result<Response> {
-        let template = request.template();
-        let mut response = self.execute(template.clone())?;
+    pub fn try_execute(&mut self, request: InnerRequest) -> Result<Response> {
+        let mut response = self.execute(request.clone())?;
         let mut retry_count = 0;
         while response.is_error() && self.config.backoff_proc.max_retries > retry_count {
             let status = response.status();
@@ -70,7 +69,7 @@ impl Client {
                     Request::refresh_access(self)?;
                 }
                 retry_count += 1;
-                response = self.retry(template.clone(), retry_count)?;
+                response = self.retry(request.clone(), retry_count)?;
             } else {
                 return response.into();
             }
@@ -89,27 +88,27 @@ impl Client {
 
     pub fn get(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(RequestBuilder::get(&url), self)
+        Request::new(InnerRequest::get(&url), self)
     }
 
     pub fn post(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(RequestBuilder::post(&url), self)
+        Request::new(InnerRequest::post(&url), self)
     }
 
     pub fn put(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(RequestBuilder::put(&url), self)
+        Request::new(InnerRequest::put(&url), self)
     }
 
     pub fn patch(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(RequestBuilder::patch(&url), self)
+        Request::new(InnerRequest::patch(&url), self)
     }
 
     pub fn delete(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(RequestBuilder::delete(&url), self)
+        Request::new(InnerRequest::delete(&url), self)
     }
 
     fn with_resource(&mut self, url: &str) -> String {
