@@ -1,7 +1,5 @@
 use crate::http::error::SomeError;
 use crate::http::http2::codec::Codec;
-use crate::http::http2::data::Data;
-use crate::http::http2::request::Request;
 use crate::http::http2::settings::*;
 use crate::http::http2::*;
 use crate::http::proto_stream::{Inner, ProtoStream};
@@ -15,7 +13,6 @@ use std::str::FromStr;
 pub struct Http2Stream<'a> {
     pub(crate) inner: Inner,
     pub(crate) codec: Codec<'a>,
-    pub(crate) stream_id: u32,
     pub(crate) settings: StreamSettings,
 }
 
@@ -37,7 +34,6 @@ impl<'a> ProtoStream for Http2Stream<'a> {
         Self {
             inner: stream,
             codec: Codec::new(),
-            stream_id: 1,
             settings: StreamSettings::default(),
         }
     }
@@ -51,26 +47,8 @@ impl<'a> ProtoStream for Http2Stream<'a> {
     }
 
     fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
-        let request = Request::from(request);
-        let has_data = request.data.is_some();
-        self.inner.write_all(&self.codec.encode_header_frame(
-            self.stream_id,
-            &request.raw_headers,
-            has_data,
-        ))?;
-        if has_data {
-            if let Some(data) = request.data {
-                let dataframe = DataFrame::new(
-                    FrameHeader::new(DATA, END_STREAM, self.stream_id),
-                    Data {
-                        pad_length: None,
-                        blocks: data,
-                        padding: None,
-                    },
-                );
-                self.inner.write_all(&dataframe.encode())?;
-            }
-        }
+        let request = self.codec.encode_request(request)?;
+        self.inner.write_all(&request)?;
 
         self.expect_response()
     }
@@ -125,16 +103,18 @@ impl<'a> Http2Stream<'a> {
 
     pub fn parse_response(&mut self, frame_header: FrameHeader) -> Result<Response> {
         let headers: HeadersFrame = self.parse_frame(frame_header)?;
-        let data = match headers.header.flags & END_STREAM == 0 {
-            true => Some(self.expect_data()?),
-            false => None,
-        };
-        self.stream_id += 2;
+        let mut body = Vec::new();
+        if headers.header.flags & END_STREAM == 0 {
+            loop {
+                let data = self.expect_data()?;
+                let ended = data.header.flags & END_STREAM != 0;
+                body.extend(data.payload.blocks);
+                if ended {
+                    break;
+                }
+            }
+        }
         let headers = self.codec.decompress_headers(&headers.payload.blocks)?;
-        let body = match data {
-            Some(data) => data.payload.blocks,
-            None => Vec::with_capacity(0),
-        };
         let status_code = headers
             .get(":status")
             .ok_or_else(|| Error::server("malformed response"))?;
@@ -201,8 +181,7 @@ impl<'a> Http2Stream<'a> {
 
     fn update_window(&mut self, frame_header: FrameHeader) -> Success {
         let frame = self.parse_wu(frame_header)?;
-        self.settings
-            .adjust_window(frame.payload.window_size_increment);
+        self.codec.current_window_size = frame.payload.window_size_increment;
 
         Ok(())
     }
@@ -236,7 +215,7 @@ impl<'a> Http2Stream<'a> {
             RST_STREAM => self.handle_stream_reset(frame_header),
             GOAWAY => self.handle_go_away(frame_header),
             _ => Err(Error::connection(
-                "unexpexted frame",
+                "unexpected frame",
                 frame_header.kind.some_box(),
             )),
         }
@@ -249,7 +228,6 @@ pub struct StreamSettings {
     pub enable_push: bool,
     pub max_concurrent_streams: u32,
     pub initial_window_size: u32,
-    pub current_window_size: u32,
     pub max_frame_size: u32,
     pub max_header_list_size: u32,
 }
@@ -270,10 +248,6 @@ impl StreamSettings {
     fn update_bulk(&mut self, settings: Vec<Setting>) {
         settings.into_iter().for_each(|s| self.update(s))
     }
-
-    fn adjust_window(&mut self, amount: u32) {
-        self.current_window_size = amount;
-    }
 }
 
 impl Default for StreamSettings {
@@ -283,7 +257,6 @@ impl Default for StreamSettings {
             enable_push: true,
             max_concurrent_streams: 100,
             initial_window_size: 65535,
-            current_window_size: 65535,
             max_frame_size: 16384,
             max_header_list_size: 4000,
         }

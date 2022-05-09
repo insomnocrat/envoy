@@ -82,7 +82,7 @@ pub trait ProtoStream: Sized + Send {
             ))?
         ];
         self.inner()
-            .read(&mut buffer)
+            .read_exact(&mut buffer)
             .map_err(|_e| Error::server("expected server response"))?;
 
         Ok(buffer)
