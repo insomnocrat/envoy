@@ -81,7 +81,7 @@ impl FramePayload for Headers {
         if let Some(dependency) = self.stream_dependency {
             let mut dependency = dependency.to_be_bytes();
             if let Some(true) = self.is_exclusive {
-                dependency[0] += EXCLUSIVE_STREAM;
+                dependency[0] |= EXCLUSIVE_STREAM;
             }
             bytes.extend(dependency);
         }

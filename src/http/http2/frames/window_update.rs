@@ -7,7 +7,8 @@ pub struct WindowUpdate {
 
 impl FramePayload for WindowUpdate {
     fn parse(bytes: &[u8], _flags: u8) -> Result<Self> {
-        let bytes = <[u8; 4]>::try_from(bytes).map_err(|_| Error::server("invalid frame"))?;
+        let mut bytes = <[u8; 4]>::try_from(bytes).map_err(|_| Error::server("invalid frame"))?;
+        bytes[0] &= RESERVED;
         Ok(Self {
             window_size_increment: u32::from_be_bytes(bytes),
         })

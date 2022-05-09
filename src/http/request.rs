@@ -1,7 +1,5 @@
 use super::{Method, Protocol};
 
-#[cfg(feature = "http2")]
-use crate::http::http2::{FrameHeader, HEADERS};
 use crate::http::utf8::{CRLF, SP, UTF8};
 use headers::*;
 use std::collections::HashMap;
@@ -10,30 +8,6 @@ use std::collections::HashMap;
 pub struct Http1Request {
     pub host: String,
     pub message: Vec<u8>,
-}
-
-#[cfg(feature = "http2")]
-#[derive(Clone, Debug)]
-pub struct Http2Request {
-    pub host: String,
-    pub headers_block: Vec<u8>,
-    pub data_block: Option<Vec<u8>>,
-}
-
-#[cfg(feature = "http2")]
-impl Http2Request {
-    pub fn headers(&self) -> Vec<u8> {
-        let frame_header = FrameHeader {
-            length: self.headers_block.len() as u32,
-            kind: HEADERS,
-            flags: crate::http::http2::frames::headers::END_HEADERS,
-            stream_identifier: 3,
-        };
-        let mut bytes = frame_header.to_bytes();
-        bytes.extend(&self.headers_block);
-
-        bytes
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -47,46 +21,6 @@ pub struct RequestBuilder {
 }
 
 impl RequestBuilder {
-    #[cfg(feature = "http2")]
-    pub fn build_http2(mut self) -> Http2Request {
-        let mut encoder = hpack::encoder::Encoder::new();
-        let mut headers_block: Vec<u8> = Vec::with_capacity(8032);
-        let mut headers: Vec<(&[u8], &[u8])> = Vec::with_capacity(self.headers.len() * 2 + 12);
-        let method = match self.method {
-            Method::GET => crate::http::http2::GET,
-            Method::POST => crate::http::http2::POST,
-            Method::PUT => crate::http::http2::PUT,
-            Method::PATCH => crate::http::http2::PATCH,
-            Method::DELETE => crate::http::http2::DELETE,
-        };
-        headers.push((b":method".as_slice(), method));
-        headers.push((b":authority", self.url.host.as_slice()));
-        let resource = match self.url.resource.is_empty() {
-            true => b"/",
-            false => self.url.resource.as_slice(),
-        };
-        headers.push((b":path", resource));
-        headers.push((b":version", b"HTTP/2.0"));
-        headers.push((b":scheme", b"https"));
-        headers.extend(
-            self.headers
-                .iter()
-                .map(|(k, v)| (k.as_slice(), v.as_slice()))
-                .collect::<Vec<(&[u8], &[u8])>>(),
-        );
-        headers_block = encoder.encode(
-            self.headers
-                .iter()
-                .map(|(k, v)| (k.as_slice(), v.as_slice())),
-        );
-
-        Http2Request {
-            host: self.url.host.utf8_lossy().to_string(),
-            headers_block,
-            data_block: self.body,
-        }
-    }
-
     pub fn build_http1(self) -> Http1Request {
         let mut message = Vec::with_capacity(8032);
         match self.method {

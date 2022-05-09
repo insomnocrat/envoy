@@ -13,7 +13,7 @@ impl FramePayload for Data {
         let (pad_length, blocks, padding) = match flag_is_present(PADDED, flags) {
             true => {
                 let pl = bytes[0];
-                let padded = (bytes.len() - pl as usize);
+                let padded = bytes.len() - pl as usize;
                 (
                     Some(pl),
                     bytes[1..padded].to_vec(),

@@ -1,15 +1,16 @@
+use crate::http::http2::stream::StreamSettings;
 use crate::http::http2::*;
 use crate::http::{Error, Result};
 use std::fmt::{Display, Formatter};
 
-const SETTINGS_HEADER_TABLE_SIZE: u16 = 0x01;
-const SETTINGS_ENABLE_PUSH: u16 = 0x02;
-const SETTINGS_MAX_CONCURRENT_STREAMS: u16 = 0x03;
-const SETTINGS_INITIAL_WINDOW_SIZE: u16 = 0x04;
-const SETTINGS_MAX_FRAME_SIZE: u16 = 0x05;
-const SETTINGS_MAX_HEADER_LIST_SIZE: u16 = 0x06;
+pub const SETTINGS_HEADER_TABLE_SIZE: u16 = 0x01;
+pub const SETTINGS_ENABLE_PUSH: u16 = 0x02;
+pub const SETTINGS_MAX_CONCURRENT_STREAMS: u16 = 0x03;
+pub const SETTINGS_INITIAL_WINDOW_SIZE: u16 = 0x04;
+pub const SETTINGS_MAX_FRAME_SIZE: u16 = 0x05;
+pub const SETTINGS_MAX_HEADER_LIST_SIZE: u16 = 0x06;
 
-const KIND: u8 = 0x04;
+const KIND: u8 = SETTING;
 
 pub(crate) type Settings = Vec<Setting>;
 
@@ -113,5 +114,49 @@ impl TryFrom<&[u8]> for Setting {
             <[u8; 6]>::try_from(bytes).map_err(|_| Error::server("received malformed setting"))?;
 
         Ok(Self::from(bytes))
+    }
+}
+
+impl From<&StreamSettings> for Settings {
+    fn from(s: &StreamSettings) -> Self {
+        let header_table_size = Setting {
+            identifier: SETTINGS_HEADER_TABLE_SIZE,
+            value: s.header_table_size,
+        };
+        let enable_push = match s.enable_push {
+            true => Setting {
+                identifier: SETTINGS_ENABLE_PUSH,
+                value: 1,
+            },
+            false => Setting {
+                identifier: SETTINGS_ENABLE_PUSH,
+                value: 0,
+            },
+        };
+        let max_concurrent_streams = Setting {
+            identifier: SETTINGS_MAX_CONCURRENT_STREAMS,
+            value: s.max_concurrent_streams,
+        };
+        let initial_window_size = Setting {
+            identifier: SETTINGS_INITIAL_WINDOW_SIZE,
+            value: s.initial_window_size,
+        };
+        let max_frame_size = Setting {
+            identifier: SETTINGS_MAX_FRAME_SIZE,
+            value: s.max_frame_size,
+        };
+        let max_header_list = Setting {
+            identifier: SETTINGS_MAX_HEADER_LIST_SIZE,
+            value: s.max_header_list_size,
+        };
+
+        vec![
+            header_table_size,
+            enable_push,
+            max_concurrent_streams,
+            initial_window_size,
+            max_frame_size,
+            max_header_list,
+        ]
     }
 }

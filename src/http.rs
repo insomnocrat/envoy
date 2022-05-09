@@ -21,6 +21,13 @@ pub use error::Error;
 type Result<T> = std::result::Result<T, Error>;
 type Success = Result<()>;
 
+pub type Http1Stream = http1::stream::Http1Stream;
+pub type Http1Client = client::Client<Http1Stream>;
+#[cfg(feature = "http2")]
+pub type Http2Client<'a> = client::Client<Http2Stream<'a>>;
+#[cfg(feature = "http2")]
+pub type Http2Stream<'a> = http2::stream::Http2Stream<'a>;
+
 #[derive(Debug, Clone)]
 pub enum Method {
     GET,

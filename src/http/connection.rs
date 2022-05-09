@@ -26,7 +26,6 @@ impl<S: 'static + ProtoStream> Connection<S> {
             channel();
         let (response_tx, response_rx) = channel();
         let mut stream = S::connect(authority)?;
-        stream.handshake()?;
         let status = Arc::new(Mutex::new(ConnectionStatus::ACTIVE));
         stream.inner().sock.set_read_timeout(Some(timeout)).unwrap();
         let thread = Self::spawn_thread(stream, status.clone(), timeout, request_rx, response_tx);

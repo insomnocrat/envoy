@@ -1,13 +1,13 @@
 #[cfg(multihost)]
 use super::pool::HostPool;
 use super::{connection::Connection, Response, Result};
-use crate::http::http1::stream::Http1Stream;
+use crate::http::proto_stream::ProtoStream;
 use crate::http::request::RequestBuilder;
 
-pub struct Client {
-    connection: Option<Connection<Http1Stream>>,
+pub struct Client<T: ProtoStream> {
+    connection: Option<Connection<T>>,
 }
-impl Client {
+impl<T: 'static + ProtoStream> Client<T> {
     pub fn new() -> Self {
         Self { connection: None }
     }

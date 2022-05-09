@@ -1,4 +1,4 @@
-mod data;
+pub(crate) mod data;
 pub(crate) mod go_away;
 pub(crate) mod headers;
 pub(crate) mod rst_stream;
@@ -30,6 +30,7 @@ pub const ORIGIN: u8 = 0x0c;
 
 pub const END_STREAM: u8 = 0x1;
 pub const PADDED: u8 = 0x08;
+pub const RESERVED: u8 = 0x80;
 
 pub(crate) const PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
@@ -51,9 +52,11 @@ impl<P: FramePayload> Frame<P> {
     pub(crate) fn new(header: FrameHeader, payload: P) -> Self {
         Self { header, payload }
     }
-    pub fn encode(self) -> Vec<u8> {
+    pub fn encode(mut self) -> Vec<u8> {
+        let payload = self.payload.encode();
+        self.header.length = payload.len() as u32;
         let mut bytes = self.header.to_bytes();
-        bytes.extend(self.payload.encode());
+        bytes.extend(payload);
 
         bytes
     }
@@ -104,9 +107,22 @@ impl Display for FrameHeader {
 }
 
 impl FrameHeader {
+    pub fn new(kind: u8, flags: u8, stream_identifier: u32) -> Self {
+        Self {
+            length: 0,
+            kind,
+            flags,
+            stream_identifier,
+        }
+    }
     pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        bytes.extend(&(self.length.to_be_bytes()[1..]));
+        let length = self.length.to_be_bytes();
+        let length = match length.len() {
+            4 => &length[1..],
+            _ => &length,
+        };
+        bytes.extend(length);
         bytes.push(self.kind);
         bytes.push(self.flags);
         bytes.extend(self.stream_identifier.to_be_bytes());

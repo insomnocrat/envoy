@@ -6,6 +6,7 @@ mod interpreter;
 #[cfg(feature = "interpreter")]
 use interpreter::Interpreter;
 
+use crate::http::Http1Stream;
 pub use crate::rest::client::config::Config;
 use crate::rest::{
     request::{InnerRequest, Request},
@@ -22,7 +23,7 @@ pub type AuthPlacement = auth::Placement;
 pub type Success = ();
 
 pub struct Client {
-    pub(crate) inner: HttpClient,
+    pub(crate) inner: HttpClient<Http1Stream>,
     pub(crate) config: Config,
     pub(crate) access: Option<auth::Access>,
     #[cfg(feature = "interpreter")]
