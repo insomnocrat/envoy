@@ -1,5 +1,5 @@
 use crate::http::buffer::Buffer;
-use crate::http::proto_stream::{Inner, ProtoStream};
+use crate::http::proto_conn::{Inner, ProtoConn};
 use crate::http::request::RequestBuilder;
 use crate::http::utf8::{CHUNK_END, CR, FINAL_CHUNK, LF, UTF8};
 use crate::http::{Error, Response, Result, Success};
@@ -9,11 +9,11 @@ use std::iter::Peekable;
 use std::str::FromStr;
 use std::vec::IntoIter;
 
-pub struct Http1Stream {
+pub struct Http1Conn {
     inner: Inner,
 }
 
-impl ProtoStream for Http1Stream {
+impl ProtoConn for Http1Conn {
     fn handshake(&mut self) -> Success {
         Ok(())
     }
@@ -27,7 +27,7 @@ impl ProtoStream for Http1Stream {
     }
 
     fn empty_buffer() -> Vec<u8> {
-        vec![0; Http1Stream::DEFAULT_BUFFER]
+        vec![0; Http1Conn::DEFAULT_BUFFER]
     }
 
     fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
@@ -37,7 +37,7 @@ impl ProtoStream for Http1Stream {
     }
 }
 
-impl Http1Stream {
+impl Http1Conn {
     pub const DEFAULT_BUFFER: usize = 8032;
 
     pub fn assess_response(&mut self) -> Result<Response> {

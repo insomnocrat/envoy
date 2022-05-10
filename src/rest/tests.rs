@@ -5,9 +5,11 @@ use super::*;
 use std::time;
 
 fn dummy_api_client() -> Client {
-    ClientConfig::from("dummyapi.io")
-        .required_header(("app-id", "623e3f74a76d8facdad7758b"))
-        .into()
+    Client::from(
+        ClientConfig::from("dummyapi.io").required_header(("app-id", "623e3f74a76d8facdad7758b")),
+    )
+    .preconnect()
+    .unwrap()
 }
 
 fn print_results(results: Vec<time::Duration>) {
@@ -17,16 +19,6 @@ fn print_results(results: Vec<time::Duration>) {
     let _avg: f32 =
         (results.iter().map(|r| r.as_secs_f32()).sum::<f32>() / results.len() as f32) * 1000.0;
     println!("Avg. {_avg}");
-}
-
-#[test]
-fn get_single_user_bare() {
-    let mut client = dummy_api_client();
-    let start = time::Instant::now();
-    let response = client.get("data/v1/user").send().unwrap();
-    let _end = time::Instant::now().duration_since(start);
-    assert!(response.is_ok());
-    println!("Total Time: {_end:#?}");
 }
 
 #[test]

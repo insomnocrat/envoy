@@ -46,6 +46,13 @@ impl Client {
     pub fn new(base_url: &str) -> Self {
         Config::from(base_url).into()
     }
+    pub fn preconnect(mut self) -> Result<Self> {
+        self.inner
+            .connect(&format!("{}:443", self.config.base_url))
+            .map_err(|e| Error::from(e))?;
+
+        Ok(self)
+    }
     pub fn config() -> Config {
         Config::default()
     }

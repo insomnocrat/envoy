@@ -1,8 +1,5 @@
 use super::*;
 
-pub const NO_ERROR: u8 = 0x00;
-pub const PROTOCOL_ERROR: u8 = 0x01;
-
 #[derive(Clone, Debug)]
 pub struct GoAway {
     pub last_stream_id: u32,

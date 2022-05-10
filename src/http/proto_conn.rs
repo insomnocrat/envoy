@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 pub(crate) type Inner = TlsStream<TlsClient, TcpStream>;
 
-pub trait ProtoStream: Sized + Send {
+pub trait ProtoConn: Sized + Send {
     const ALPN_PROTOCOLS: Option<&'static [&'static [u8]]> = None;
 
     fn connect(authority: &str) -> Result<Self> {
@@ -59,18 +59,6 @@ pub trait ProtoStream: Sized + Send {
 
     fn inner(&mut self) -> &mut Inner;
 
-    fn read_buf<T>(&mut self, size: T) -> Result<Vec<u8>>
-    where
-        T: Into<usize>,
-    {
-        let mut buffer = vec![0; size.into()];
-        self.inner()
-            .read(&mut buffer)
-            .map_err(|_e| Error::server("expected server response"))?;
-
-        Ok(buffer)
-    }
-
     fn try_read_buf<T>(&mut self, size: T) -> Result<Vec<u8>>
     where
         T: TryInto<usize>,
@@ -90,5 +78,5 @@ pub trait ProtoStream: Sized + Send {
 
     fn empty_buffer() -> Vec<u8>;
 
-    fn send_request(&mut self, request: RequestBuilder) -> Result<Response>;
+    fn send_request(&mut self, requests: RequestBuilder) -> Result<Response>;
 }

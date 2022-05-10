@@ -71,6 +71,12 @@ impl<P: FramePayload> Frame<P> {
 
         Ok(Self::new(header, payload))
     }
+    pub fn is_stream_end(&self) -> bool {
+        self.header.flags & END_STREAM != 0
+    }
+    pub fn id(&self) -> &u32 {
+        &self.header.stream_identifier
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -8,8 +8,9 @@ mod http1;
 #[cfg(feature = "http2")]
 mod http2;
 pub mod pool;
-mod proto_stream;
+mod proto_conn;
 pub mod request;
+pub mod status;
 #[cfg(test)]
 mod tests;
 pub mod utf8;
@@ -21,12 +22,12 @@ pub use error::Error;
 type Result<T> = std::result::Result<T, Error>;
 type Success = Result<()>;
 
-pub type Http1Stream = http1::stream::Http1Stream;
+pub type Http1Stream = http1::conn::Http1Conn;
 pub type Http1Client = client::Client<Http1Stream>;
 #[cfg(feature = "http2")]
 pub type Http2Client<'a> = client::Client<Http2Stream<'a>>;
 #[cfg(feature = "http2")]
-pub type Http2Stream<'a> = http2::stream::Http2Stream<'a>;
+pub type Http2Stream<'a> = http2::conn::Http2Conn<'a>;
 
 #[derive(Debug, Clone)]
 pub enum Method {

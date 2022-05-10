@@ -1,4 +1,4 @@
-use super::proto_stream::ProtoStream;
+use super::proto_conn::ProtoConn;
 use super::{Error, ErrorKind, Response, Result, Success};
 use std::marker::PhantomData;
 // #[cfg(feature = "http2")]
@@ -10,7 +10,7 @@ use std::thread;
 use std::thread::JoinHandle;
 
 #[derive(Debug)]
-pub struct Connection<S: ProtoStream> {
+pub struct Connection<S: ProtoConn> {
     pub host: String,
     pub request_tx: Sender<RequestBuilder>,
     pub response_rx: Receiver<Result<Response>>,
@@ -19,7 +19,7 @@ pub struct Connection<S: ProtoStream> {
     _stream: PhantomData<S>,
 }
 
-impl<S: 'static + ProtoStream> Connection<S> {
+impl<S: 'static + ProtoConn> Connection<S> {
     pub fn new(authority: &str) -> Result<Self> {
         let timeout = std::time::Duration::from_secs(30);
         let (request_tx, request_rx): (Sender<RequestBuilder>, Receiver<RequestBuilder>) =

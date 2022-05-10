@@ -1,5 +1,6 @@
 use crate::http::http2::headers::{Headers, END_HEADERS};
 use crate::http::http2::request::Request;
+use crate::http::http2::settings::*;
 use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
 use crate::http::utf8::UTF8;
@@ -10,7 +11,8 @@ use std::collections::HashMap;
 pub struct Codec<'a> {
     pub encoder: Encoder<'a>,
     pub decoder: Decoder<'a>,
-    pub stream_id: u32,
+    pub last_stream: u32,
+    pub settings: StreamSettings,
     pub current_window_size: u32,
 }
 
@@ -19,21 +21,23 @@ impl<'a> Codec<'a> {
         Self {
             encoder: Encoder::new(),
             decoder: Decoder::new(),
-            stream_id: 1,
+            last_stream: 1,
+            settings: StreamSettings::default(),
             current_window_size: 65535,
         }
     }
+
     pub fn encode_request(&mut self, request: RequestBuilder) -> Result<Vec<u8>> {
         let request = Request::from(request);
         let mut encoded = self.encode_header_frame(&request.raw_headers, request.data.is_some());
         if let Some(data) = request.data {
             let data_frame = DataFrame::parse_from_payload(
-                FrameHeader::new(DATA, END_STREAM, self.stream_id),
+                FrameHeader::new(DATA, END_STREAM, self.last_stream),
                 &data,
             )?;
             encoded.extend(data_frame.encode());
         }
-        self.stream_id += 2;
+        self.last_stream += 2;
         self.current_window_size -= encoded.len() as u32;
 
         Ok(encoded)
@@ -52,7 +56,7 @@ impl<'a> Codec<'a> {
             length: encoded.len() as u32,
             kind: HEADERS,
             flags,
-            stream_identifier: self.stream_id,
+            stream_identifier: self.last_stream,
         };
         let headers = Headers {
             pad_length: None,
@@ -83,5 +87,46 @@ impl<'a> Codec<'a> {
             .into_iter()
             .map(|(k, v)| (k.utf8_lossy().to_string(), v.utf8_lossy().to_string()))
             .collect::<HashMap<String, String>>())
+    }
+}
+
+#[derive(Debug)]
+pub struct StreamSettings {
+    pub header_table_size: u32,
+    pub enable_push: bool,
+    pub max_concurrent_streams: u32,
+    pub initial_window_size: u32,
+    pub max_frame_size: u32,
+    pub max_header_list_size: u32,
+}
+
+impl StreamSettings {
+    fn update_setting(&mut self, setting: Setting) {
+        match setting.identifier {
+            SETTINGS_HEADER_TABLE_SIZE => self.header_table_size = setting.value,
+            SETTINGS_ENABLE_PUSH => self.enable_push = setting.value != 0,
+            SETTINGS_INITIAL_WINDOW_SIZE => self.initial_window_size = setting.value,
+            SETTINGS_MAX_CONCURRENT_STREAMS => self.max_concurrent_streams = setting.value,
+            SETTINGS_MAX_FRAME_SIZE => self.max_frame_size = setting.value,
+            SETTINGS_MAX_HEADER_LIST_SIZE => self.max_header_list_size = setting.value,
+            _ => {}
+        }
+    }
+
+    pub(crate) fn update(&mut self, settings: Vec<Setting>) {
+        settings.into_iter().for_each(|s| self.update_setting(s))
+    }
+}
+
+impl Default for StreamSettings {
+    fn default() -> Self {
+        Self {
+            header_table_size: 4096,
+            enable_push: true,
+            max_concurrent_streams: 100,
+            initial_window_size: 65535,
+            max_frame_size: 16384,
+            max_header_list_size: 4000,
+        }
     }
 }

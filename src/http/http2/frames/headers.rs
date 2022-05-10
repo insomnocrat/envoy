@@ -17,6 +17,12 @@ pub struct Headers {
     pub padding: Option<Vec<u8>>,
 }
 
+impl Frame<Headers> {
+    pub fn is_end_headers(&self) -> bool {
+        self.header.flags & END_HEADERS != 0
+    }
+}
+
 impl FramePayload for Headers {
     fn parse(bytes: &[u8], flags: u8) -> Result<Self> {
         let mut iter = bytes.into_iter();
