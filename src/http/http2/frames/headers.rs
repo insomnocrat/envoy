@@ -1,11 +1,6 @@
 use super::Result;
 use super::*;
-
-const KIND: u8 = 0x01;
-pub(crate) const END_HEADERS: u8 = 0x4;
-const PRIORITY: u8 = 0x20;
-const PADDED_OR_PRIORITY: u8 = PADDED | PRIORITY;
-const EXCLUSIVE_STREAM: u8 = 0x80;
+use flags::*;
 
 #[derive(Clone, Debug)]
 pub struct Headers {
@@ -37,7 +32,7 @@ impl FramePayload for Headers {
                         ),
                         false => None,
                     };
-                    let (ie, sd, w) = match flag_is_present(PRIORITY, flags) {
+                    let (ie, sd, w) = match flag_is_present(flags::PRIORITY, flags) {
                         true => {
                             let mut s = <[u8; 4]>::try_from(
                                 iter.by_ref().take(4).map(|b| *b).collect::<Vec<u8>>(),
@@ -96,4 +91,11 @@ impl FramePayload for Headers {
 
         bytes
     }
+}
+
+pub mod flags {
+    pub const END_HEADERS: u8 = 0x4;
+    pub const PRIORITY: u8 = 0x20;
+    pub const PADDED_OR_PRIORITY: u8 = super::PADDED | PRIORITY;
+    pub const EXCLUSIVE_STREAM: u8 = 0x80;
 }

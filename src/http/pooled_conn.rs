@@ -1,8 +1,5 @@
 use super::proto_conn::ProtoConn;
 use super::{Error, ErrorKind, Response, Result, Success};
-use std::marker::PhantomData;
-// #[cfg(feature = "http2")]
-// use crate::http::http2::stream::Http2Stream;
 use crate::http::request::RequestBuilder;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -10,25 +7,27 @@ use std::thread;
 use std::thread::JoinHandle;
 
 #[derive(Debug)]
-pub struct Connection<S: ProtoConn> {
+pub struct PooledConn {
     pub host: String,
     pub request_tx: Sender<RequestBuilder>,
     pub response_rx: Receiver<Result<Response>>,
     pub status: Arc<Mutex<ConnectionStatus>>,
     thread: Option<JoinHandle<()>>,
-    _stream: PhantomData<S>,
 }
 
-impl<S: 'static + ProtoConn> Connection<S> {
+impl PooledConn {
     pub fn new(authority: &str) -> Result<Self> {
         let timeout = std::time::Duration::from_secs(30);
         let (request_tx, request_rx): (Sender<RequestBuilder>, Receiver<RequestBuilder>) =
             channel();
         let (response_tx, response_rx) = channel();
-        let mut stream = S::connect(authority)?;
+        let conn = ProtoConn::connect(authority)?;
         let status = Arc::new(Mutex::new(ConnectionStatus::ACTIVE));
-        stream.inner().sock.set_read_timeout(Some(timeout)).unwrap();
-        let thread = Self::spawn_thread(stream, status.clone(), timeout, request_rx, response_tx);
+        conn.inner
+            .sock
+            .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+            .unwrap();
+        let thread = Self::spawn_thread(conn, status.clone(), timeout, request_rx, response_tx);
 
         Ok(Self {
             host: authority.to_string(),
@@ -36,12 +35,11 @@ impl<S: 'static + ProtoConn> Connection<S> {
             response_rx,
             thread: Some(thread),
             status,
-            _stream: PhantomData,
         })
     }
 
     fn spawn_thread(
-        stream: S,
+        conn: ProtoConn,
         status: Arc<Mutex<ConnectionStatus>>,
         timeout: std::time::Duration,
         request_rx: Receiver<RequestBuilder>,
@@ -50,7 +48,7 @@ impl<S: 'static + ProtoConn> Connection<S> {
         thread::spawn(move || {
             let request_rx = request_rx;
             let response_tx = response_tx;
-            let mut connection = stream;
+            let mut connection = conn;
             'inner: loop {
                 let request = match request_rx.recv_timeout(timeout) {
                     Ok(i) => i,

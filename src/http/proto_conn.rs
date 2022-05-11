@@ -1,34 +1,71 @@
-use super::{error::SomeError, Error, Result, Success};
+use super::{error::SomeError, Error, Result};
+use crate::http::codec::Codec;
+use crate::http::http1::codec::Http1Codec;
+#[cfg(feature = "http2")]
+use crate::http::http2::codec::Http2Codec;
 use crate::http::request::RequestBuilder;
 use crate::http::Response;
 use rustls::client::InvalidDnsNameError;
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
-use std::io::Read;
+use std::io::Write;
 use std::net::TcpStream;
 use std::sync::Arc;
 
 pub(crate) type Inner = TlsStream<TlsClient, TcpStream>;
 
-pub trait ProtoConn: Sized + Send {
-    const ALPN_PROTOCOLS: Option<&'static [&'static [u8]]> = None;
+#[cfg(feature = "http2")]
+pub const H2: &[u8] = b"h2";
+#[cfg(feature = "http2")]
+pub const H1: &[u8] = b"http/1.1";
+pub const ALPN: &[&[u8]] = &[
+    #[cfg(feature = "http2")]
+    H2,
+    #[cfg(feature = "http2")]
+    H1,
+];
 
-    fn connect(authority: &str) -> Result<Self> {
+pub struct ProtoConn {
+    pub(crate) inner: Inner,
+    pub(crate) codec: Box<dyn Codec>,
+}
+
+impl ProtoConn {
+    pub(crate) fn connect(authority: &str) -> Result<Self> {
         let stream = TcpStream::connect(authority)?;
-        let tls_client =
-            Self::config_tls(authority.trim_end_matches(|c: char| c == ':' || c.is_numeric()))?;
-        let stream = TlsStream::new(tls_client, stream);
-        let mut proto_stream = Self::new(stream);
-        proto_stream.handshake()?;
+        let tls_client = Self::config_tls(
+            authority.trim_end_matches(|c: char| c == ':' || c.is_numeric()),
+            ALPN,
+        )?;
+        let inner_stream: Inner;
+        let codec: Box<dyn Codec>;
+        #[cfg(feature = "http2")]
+        {
+            let mut stream = TlsStream::new(tls_client, stream);
+            let mut c = Box::new(Http2Codec::new());
+            match c.handshake(&mut stream) {
+                Ok(_) => codec = c,
+                Err(_) => codec = Box::new(Http1Codec::new()),
+            }
+            inner_stream = stream;
+        }
+        #[cfg(not(feature = "http2"))]
+        {
+            codec = Box::new(Http1Codec::new());
+            inner_stream = TlsStream::new(tls_client, stream);
+        }
 
-        Ok(proto_stream)
+        Ok(Self::new(inner_stream, codec))
     }
 
-    fn handshake(&mut self) -> Success;
+    fn new(stream: Inner, codec: Box<dyn Codec>) -> Self {
+        Self {
+            inner: stream,
+            codec,
+        }
+    }
 
-    fn new(stream: Inner) -> Self;
-
-    fn config_tls(host: &str) -> Result<TlsClient> {
+    fn config_tls(host: &str, protocols: &[&[u8]]) -> Result<TlsClient> {
         let mut root_store = rustls::RootCertStore::empty();
         root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
             rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
@@ -41,11 +78,9 @@ pub trait ProtoConn: Sized + Send {
             .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        if let Some(protocols) = Self::ALPN_PROTOCOLS {
-            protocols
-                .iter()
-                .for_each(|p| config.alpn_protocols.push(p.to_vec()))
-        }
+        protocols
+            .into_iter()
+            .for_each(|p| config.alpn_protocols.push(p.to_vec()));
         let rc_config = Arc::new(config);
 
         TlsClient::new(
@@ -57,26 +92,10 @@ pub trait ProtoConn: Sized + Send {
         .map_err(|e| Error::connection("could not connect to server", e.some_box()))
     }
 
-    fn inner(&mut self) -> &mut Inner;
+    pub fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
+        let encoded = self.codec.encode_request(request)?;
+        self.inner.write_all(&encoded)?;
 
-    fn try_read_buf<T>(&mut self, size: T) -> Result<Vec<u8>>
-    where
-        T: TryInto<usize>,
-    {
-        let mut buffer = vec![
-            0;
-            size.try_into().map_err(|_e| Error::client(
-                "could not convert buffer length to usize"
-            ))?
-        ];
-        self.inner()
-            .read_exact(&mut buffer)
-            .map_err(|_e| Error::server("expected server response"))?;
-
-        Ok(buffer)
+        self.codec.decode_response(&mut self.inner)
     }
-
-    fn empty_buffer() -> Vec<u8>;
-
-    fn send_request(&mut self, requests: RequestBuilder) -> Result<Response>;
 }

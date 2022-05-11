@@ -6,7 +6,6 @@ mod interpreter;
 #[cfg(feature = "interpreter")]
 use interpreter::Interpreter;
 
-use crate::http::Http1Stream;
 pub use crate::rest::client::config::Config;
 use crate::rest::{
     request::{InnerRequest, Request},
@@ -23,7 +22,7 @@ pub type AuthPlacement = auth::Placement;
 pub type Success = ();
 
 pub struct Client {
-    pub(crate) inner: HttpClient<Http1Stream>,
+    pub(crate) inner: HttpClient,
     pub(crate) config: Config,
     pub(crate) access: Option<auth::Access>,
     #[cfg(feature = "interpreter")]
@@ -45,13 +44,6 @@ impl From<Config> for Client {
 impl Client {
     pub fn new(base_url: &str) -> Self {
         Config::from(base_url).into()
-    }
-    pub fn preconnect(mut self) -> Result<Self> {
-        self.inner
-            .connect(&format!("{}:443", self.config.base_url))
-            .map_err(|e| Error::from(e))?;
-
-        Ok(self)
     }
     pub fn config() -> Config {
         Config::default()

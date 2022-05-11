@@ -1,8 +1,7 @@
-mod codec;
-pub(crate) mod conn;
-pub(crate) mod frames;
+pub mod codec;
+pub mod frames;
 pub mod request;
-mod stream;
+pub mod stream;
 #[cfg(test)]
 mod tests;
 

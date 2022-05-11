@@ -2,17 +2,18 @@ use std::collections::HashMap;
 
 pub mod buffer;
 pub mod client;
-pub mod connection;
+mod codec;
 pub mod error;
-mod http1;
+pub mod http1;
 #[cfg(feature = "http2")]
-mod http2;
+pub mod http2;
 pub mod pool;
+pub mod pooled_conn;
 mod proto_conn;
 pub mod request;
 pub mod status;
 #[cfg(test)]
-mod tests;
+pub(crate) mod test_utils;
 pub mod utf8;
 
 use crate::http::error::ErrorKind;
@@ -21,13 +22,7 @@ pub use error::Error;
 
 type Result<T> = std::result::Result<T, Error>;
 type Success = Result<()>;
-
-pub type Http1Stream = http1::conn::Http1Conn;
-pub type Http1Client = client::Client<Http1Stream>;
-#[cfg(feature = "http2")]
-pub type Http2Client<'a> = client::Client<Http2Stream<'a>>;
-#[cfg(feature = "http2")]
-pub type Http2Stream<'a> = http2::conn::Http2Conn<'a>;
+pub type HttpClient = crate::http::client::Client;
 
 #[derive(Debug, Clone)]
 pub enum Method {

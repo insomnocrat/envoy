@@ -1,1 +1,3 @@
-pub(crate) mod conn;
+pub(crate) mod codec;
+#[cfg(test)]
+mod tests;

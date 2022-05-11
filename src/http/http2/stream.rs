@@ -1,8 +1,6 @@
-use crate::http::Response;
-
+#[derive(Debug)]
 pub struct Stream {
     pub id: u32,
-    pub request: Option<Vec<u8>>,
     pub state: State,
     pub response_headers: Vec<u8>,
     pub response_data: Vec<u8>,
@@ -10,11 +8,10 @@ pub struct Stream {
 }
 
 impl Stream {
-    pub fn new(id: u32, request: Vec<u8>) -> Self {
+    pub fn new(id: u32) -> Self {
         Self {
             id,
-            request: Some(request),
-            state: State::Idle,
+            state: State::Open,
             response_headers: Vec::new(),
             response_data: Vec::new(),
             termination_code: 0,

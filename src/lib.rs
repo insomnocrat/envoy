@@ -2,6 +2,6 @@ pub mod http;
 #[cfg(feature = "rest")]
 pub mod rest;
 
-pub type HttpClient<T> = http::client::Client<T>;
+pub type HttpClient = http::HttpClient;
 #[cfg(feature = "rest")]
 pub type RestClient = rest::Client;

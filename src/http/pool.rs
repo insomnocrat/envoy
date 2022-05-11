@@ -1,7 +1,5 @@
-use super::{connection::Connection, Error, Response, Result, Success};
+use super::{pooled_conn::PooledConn, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
-use crate::http::http1::conn::Http1Conn;
-use crate::http::proto_conn::ProtoConn;
 use crate::http::request::RequestBuilder;
 use crate::http::utf8::UTF8;
 use std::collections::HashMap;
@@ -94,23 +92,23 @@ impl HostPool {
     }
 }
 
-pub struct Pool<T: ProtoConn> {
-    map: HashMap<String, Connection<T>>,
+pub struct Pool {
+    map: HashMap<String, PooledConn>,
     pub response_tx: Sender<Result<Response>>,
 }
 
-impl Pool<Http1Conn> {
+impl Pool {
     pub fn new(response_tx: Sender<Result<Response>>) -> Self {
         Self {
             map: HashMap::with_capacity(4),
             response_tx,
         }
     }
-    pub fn spawn_connection(addr: &str) -> Result<Connection<Http1Conn>> {
-        Connection::new(addr)
+    pub fn spawn_connection(addr: &str) -> Result<PooledConn> {
+        PooledConn::new(addr)
     }
 
-    pub fn host(&mut self, addr: &str) -> Result<&mut Connection<Http1Conn>> {
+    pub fn host(&mut self, addr: &str) -> Result<&mut PooledConn> {
         let connection = self
             .map
             .entry(addr.to_string())

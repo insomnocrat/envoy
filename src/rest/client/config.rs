@@ -1,5 +1,6 @@
 use crate::rest::client::auth::Authentication;
 use crate::rest::client::Auth;
+use crate::rest::{Client, Error, Result};
 use std::collections::HashMap;
 
 pub struct Config {
@@ -34,6 +35,18 @@ impl From<&str> for Config {
 impl Config {
     pub fn new() -> Self {
         Self::default()
+    }
+    pub fn build(self) -> Client {
+        self.into()
+    }
+    pub fn preconnect(self) -> Result<Client> {
+        let mut client = self.build();
+        client
+            .inner
+            .connect(&format!("{}:443", client.config.base_url))
+            .map_err(|e| Error::from(e))?;
+
+        Ok(client)
     }
     pub fn backoff(self, proc: BackOffProcedure) -> Self {
         Self {

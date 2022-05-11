@@ -1,24 +1,16 @@
 mod models;
 use models::*;
 
-use super::*;
+use crate::http::test_utils::print_results;
+use crate::rest::*;
 use std::time;
 
 fn dummy_api_client() -> Client {
-    Client::from(
-        ClientConfig::from("dummyapi.io").required_header(("app-id", "623e3f74a76d8facdad7758b")),
-    )
-    .preconnect()
-    .unwrap()
-}
-
-fn print_results(results: Vec<time::Duration>) {
-    for (_i, _end) in results.iter().enumerate() {
-        println!("Run {_i} Total Time: {_end:#?}");
-    }
-    let _avg: f32 =
-        (results.iter().map(|r| r.as_secs_f32()).sum::<f32>() / results.len() as f32) * 1000.0;
-    println!("Avg. {_avg}");
+    Client::config()
+        .base_url("dummyapi.io")
+        .required_header(("app-id", "623e3f74a76d8facdad7758b"))
+        .preconnect()
+        .unwrap()
 }
 
 #[test]
@@ -104,7 +96,7 @@ fn post_and_delete() {
     let mut user = User::default();
     user.first_name = "Father".to_string();
     user.last_name = "Dougal".to_string();
-    user.email = "random_email@urrland.com".to_string();
+    user.email = "random_email@nurrland.com".to_string();
     user.date_of_birth = "1/1/1900".to_string();
     for _ in 0..101 {
         let start = time::Instant::now();

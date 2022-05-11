@@ -6,7 +6,7 @@ authors = ["James Roark <insomnocrat@gmail.com>"]
 license = "Apache-2.0"
 homepage = "https://github.com/insomnocrat/envoy"
 repository = "https://github.com/insomnocrat/envoy"
-keywords = ["http", "api", "web", "json", "parse"]
+keywords = ["http", "api", "web", "parse"]
 categories = ["Authentication", "Network programming", "Rust patterns", "Web programming", "API bindings"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

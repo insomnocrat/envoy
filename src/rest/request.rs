@@ -52,7 +52,7 @@ impl<'a> Request<'a> {
         let body = serde_json::to_vec(body).unwrap();
         let mut inner = self.inner;
         inner.body(&body);
-        inner.header((b"Content-Type", b"application/json"));
+        inner.header((b"content-type", b"application/json"));
         Self {
             inner,
             client_ref: self.client_ref,

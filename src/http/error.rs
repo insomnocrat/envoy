@@ -15,7 +15,7 @@ impl Error {
             kind,
         }
     }
-    
+
     pub fn server(message: &str) -> Self {
         Self::new(message, ErrorKind::Server)
     }
@@ -27,7 +27,7 @@ impl Error {
     pub fn user(message: &str) -> Self {
         Self::new(message, ErrorKind::User)
     }
-    
+
     pub fn connection(message: &str, source: Option<Box<dyn Any + Send>>) -> Self {
         Self::new(message, ErrorKind::Connection(source))
     }
@@ -66,10 +66,7 @@ impl<T: 'static + Sized + Send> SomeError for T {
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Self::new(
-            "could not connect to server",
-            ErrorKind::Connection(e.some_box()),
-        )
+        Self::new(&e.to_string(), ErrorKind::Connection(e.some_box()))
     }
 }
 
@@ -78,4 +75,3 @@ impl From<FromUtf8Error> for Error {
         Self::new("response contained invalid utf-8", ErrorKind::Server)
     }
 }
-

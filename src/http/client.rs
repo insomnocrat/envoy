@@ -1,13 +1,12 @@
 #[cfg(multihost)]
 use super::pool::HostPool;
-use super::{connection::Connection, Response, Result};
-use crate::http::proto_conn::ProtoConn;
+use super::{pooled_conn::PooledConn, Response, Result};
 use crate::http::request::RequestBuilder;
 
-pub struct Client<T: ProtoConn> {
-    connection: Option<Connection<T>>,
+pub struct Client {
+    connection: Option<PooledConn>,
 }
-impl<T: 'static + ProtoConn> Client<T> {
+impl Client {
     pub fn new() -> Self {
         Self { connection: None }
     }
@@ -16,11 +15,11 @@ impl<T: 'static + ProtoConn> Client<T> {
         let host = request.url.authority();
         let connection = match &mut self.connection {
             Some(conn) => conn,
-            None => self.connection.insert(Connection::new(&host)?),
+            None => self.connection.insert(PooledConn::new(&host)?),
         };
         if !connection.host.eq(&host) {
             connection.join_thread();
-            *connection = Connection::new(&host)?;
+            *connection = PooledConn::new(&host)?;
         }
         connection.send_request(request)?;
 
@@ -28,7 +27,7 @@ impl<T: 'static + ProtoConn> Client<T> {
     }
 
     pub fn connect(&mut self, host: &str) -> Result<()> {
-        self.connection = Some(Connection::new(&host)?);
+        self.connection = Some(PooledConn::new(&host)?);
 
         Ok(())
     }
