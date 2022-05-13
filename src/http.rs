@@ -33,7 +33,7 @@ pub enum Method {
     DELETE,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Protocol {
     HTTP1,
     #[cfg(feature = "http2")]

@@ -1,8 +1,9 @@
 use crate::http::buffer::Buffer;
 use crate::http::codec::Codec;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8::{CHUNK_END, CR, FINAL_CHUNK, LF, UTF8};
-use crate::http::{Error, Response, Result, Success};
+use crate::http::utf8::{CHUNK_END, CR, CRLF, FINAL_CHUNK, LF, SP, UTF8};
+use crate::http::{Error, Method, Protocol, Response, Result, Success};
+use crate::rest::request::{CONTENT_LENGTH, HOST};
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
 use std::collections::HashMap;
@@ -11,12 +12,55 @@ use std::iter::Peekable;
 use std::net::TcpStream;
 use std::str::FromStr;
 use std::vec::IntoIter;
+use crate::http::Protocol::HTTP1;
 
 pub struct Http1Codec;
 
 impl Codec for Http1Codec {
     fn encode_request(&mut self, request: RequestBuilder) -> Result<Vec<u8>> {
-        Ok(request.build_http1().message)
+        let mut message = Vec::with_capacity(8032);
+        match request.method {
+            Method::GET => message.extend(b"GET "),
+            Method::POST => message.extend(b"POST "),
+            Method::PUT => message.extend(b"PUT "),
+            Method::PATCH => message.extend(b"PATCH "),
+            Method::DELETE => message.extend(b"DELETE "),
+        }
+        if request.url.resource.is_empty() {
+            message.push(0x2f);
+        } else {
+            message.extend(request.url.resource);
+        }
+        if !request.query.is_empty() {
+            message.push(0x3F);
+            for (key, value) in request.query.into_iter() {
+                message.extend(key);
+                message.push(0x3D);
+                message.extend(value);
+                message.extend_from_slice(CRLF);
+            }
+        };
+        message.extend(b" HTTP/1.1\r\n");
+        let colon = &[0x3A, SP];
+        message.extend_from_slice(HOST);
+        message.extend_from_slice(colon);
+        message.extend_from_slice(&request.url.host);
+        message.extend_from_slice(CRLF);
+        let body = request.body.unwrap_or_default();
+        if !body.is_empty() {
+            message.extend_from_slice(CONTENT_LENGTH);
+            message.extend_from_slice(format!("{}\r\n", body.len()).as_bytes());
+        }
+        for (key, value) in request.headers.into_iter() {
+            message.extend(key);
+            message.extend_from_slice(colon);
+            message.extend(value);
+            message.extend_from_slice(CRLF);
+        }
+        message.extend(CRLF);
+        message.extend(body);
+
+        Ok(message)
     }
 
     fn decode_response(
@@ -60,6 +104,10 @@ impl Codec for Http1Codec {
 
     fn handshake(&mut self, _stream: &mut TlsStream<TlsClient, TcpStream>) -> Success {
         Ok(())
+    }
+
+    fn kind(&self) -> Protocol {
+        HTTP1
     }
 }
 

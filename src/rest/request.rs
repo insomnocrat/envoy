@@ -1,10 +1,13 @@
 use crate::http::request::headers::AUTHORIZATION;
+pub use crate::http::request::headers::*;
 pub use crate::http::request::RequestBuilder as InnerRequest;
 pub use crate::http::Response as InnerResponse;
+use crate::rest::client::auth::OAUTH;
 use crate::rest::client::{
     auth::AccessTokenResponse, auth::BASIC, auth::BEARER, AuthMethod, AuthPlacement, Success,
 };
 use crate::rest::error::SomeError;
+use crate::rest::request::values::{ALL, JSON};
 use crate::{
     rest::{response::Response, Error, ErrorKind, Result},
     RestClient,
@@ -32,7 +35,7 @@ impl<'a> Request<'a> {
     where
         T: DeserializeOwned,
     {
-        self.send()?.json()
+        self.accept_json().send()?.json()
     }
 
     pub fn expect_utf8(self) -> Result<String> {
@@ -50,46 +53,39 @@ impl<'a> Request<'a> {
 
     pub fn body<T: Serialize>(self, body: &T) -> Self {
         let body = serde_json::to_vec(body).unwrap();
-        let mut inner = self.inner;
-        inner.body(&body);
-        inner.header((b"content-type", b"application/json"));
         Self {
-            inner,
+            inner: self.inner.body(&body).header((CONTENT_TYPE, JSON)),
             client_ref: self.client_ref,
         }
     }
 
     pub fn header(self, key: &[u8], value: &[u8]) -> Self {
-        let mut inner = self.inner;
-        inner.header((key, value));
         Self {
-            inner,
+            inner: self.inner.header((key, value)),
             client_ref: self.client_ref,
         }
     }
 
     pub fn headers(self, headers: Vec<(&[u8], &[u8])>) -> Self {
-        let mut inner = self.inner;
-        inner.headers(headers);
         Self {
-            inner,
+            inner: self.inner.headers(headers),
             client_ref: self.client_ref,
         }
     }
 
-    pub fn header_mut(&mut self, key: &[u8], value: &[u8]) {
-        self.inner.header((key, &value));
+    pub fn extend_header(&mut self, key: &[u8], value: &[u8]) {
+        self.inner.extend_header((key, &value));
     }
-    pub fn headers_mut(&mut self, headers: Vec<(&[u8], &[u8])>) {
-        self.inner.headers(headers);
+    pub fn extend_headers(&mut self, headers: Vec<(&[u8], &[u8])>) {
+        self.inner.extend_headers(headers);
     }
     pub fn body_mut<T: Serialize>(&mut self, body: &T) {
         let body = serde_json::to_vec(body).unwrap();
-        self.inner.body(&body);
+        self.inner.body_mut(&body);
     }
 
     fn set_required_headers(&mut self) {
-        self.inner.headers(
+        self.inner.extend_headers(
             self.client_ref
                 .config
                 .required_headers
@@ -109,13 +105,12 @@ impl<'a> Request<'a> {
         (AUTHORIZATION.to_vec(), basic)
     }
 
-    pub fn basic_auth(&mut self, username: &str, password: Option<&str>) {
-        let (header, value) = Self::encode_basic_auth(
-            username.as_bytes(),
-            password.map(|p| p.as_bytes()).unwrap_or_default(),
+    fn set_oauth1(request: &mut InnerRequest, key: &str, token: &str) {
+        let mut value = OAUTH.to_vec();
+        value.extend(
+            format!("oauth_consumer_key=\"{}\", oauth_token=\"{}\"", key, token).as_bytes(),
         );
-
-        self.inner.header((&header, &value));
+        request.extend_header((AUTHORIZATION, &value));
     }
 
     fn set_basic_auth(request: &mut InnerRequest, username: &str, password: Option<&str>) {
@@ -123,13 +118,13 @@ impl<'a> Request<'a> {
             username.as_bytes(),
             password.map(|p| p.as_bytes()).unwrap_or_default(),
         );
-        request.header((&header, &value))
+        request.extend_header((&header, &value))
     }
 
     fn set_bearer_auth(request: &mut InnerRequest, token: &str) {
         let mut value = BEARER.to_vec();
         value.extend(encode(token).as_bytes());
-        request.header((AUTHORIZATION, &value));
+        request.extend_header((AUTHORIZATION, &value));
     }
 
     fn set_auth(&mut self) -> Result<Success> {
@@ -155,9 +150,26 @@ impl<'a> Request<'a> {
                     let (username, password) = auth.credentials.to_basic()?;
                     Self::set_basic_auth(&mut self.inner, username, password);
                 }
+                AuthMethod::OAUTH => {
+                    let key = auth
+                        .credentials
+                        .value_map
+                        .get("oauth_consumer_key")
+                        .ok_or_else(|| {
+                            Error::new("invalid oauth credentials", ErrorKind::Client, None)
+                        })?;
+                    let token = auth
+                        .credentials
+                        .value_map
+                        .get("oauth_token")
+                        .ok_or_else(|| {
+                            Error::new("invalid oauth credentials", ErrorKind::Client, None)
+                        })?;
+                    Self::set_oauth1(&mut self.inner, key, token);
+                }
                 AuthMethod::OTHER => match &auth.credentials.placement {
                     AuthPlacement::HEADER => {
-                        self.inner.headers(
+                        self.inner.extend_headers(
                             auth.credentials
                                 .value_map
                                 .iter()
@@ -165,7 +177,7 @@ impl<'a> Request<'a> {
                                 .collect(),
                         );
                     }
-                    AuthPlacement::BODY => self.inner.body(
+                    AuthPlacement::BODY => self.inner.body_mut(
                         serde_json::to_vec(&auth.credentials.value_map)
                             .map_err(|e| {
                                 Error::new(
@@ -181,7 +193,7 @@ impl<'a> Request<'a> {
                         for (key, value) in auth.credentials.value_map.iter() {
                             query_pairs.push((key.as_bytes(), value.as_bytes()));
                         }
-                        self.inner.query(query_pairs);
+                        self.inner.extend_query(query_pairs);
                     }
                 },
             }
@@ -214,7 +226,7 @@ impl<'a> Request<'a> {
                 let (username, password) = credentials.to_basic()?;
                 Self::set_basic_auth(&mut auth_request, username, password);
             }
-            AuthPlacement::BODY => auth_request.body(
+            AuthPlacement::BODY => auth_request.body_mut(
                 serde_json::to_vec(&credentials.value_map)
                     .map_err(|e| {
                         Error::new(
@@ -230,7 +242,7 @@ impl<'a> Request<'a> {
                 for (key, value) in credentials.value_map.iter() {
                     query_pairs.push((key.as_bytes(), value.as_bytes()));
                 }
-                auth_request.query(query_pairs);
+                auth_request.extend_query(query_pairs);
             }
         };
         let response: Result<Response> = Response::from(
@@ -244,5 +256,38 @@ impl<'a> Request<'a> {
         client_ref.access = Some(response.json::<AccessTokenResponse>()?.into());
 
         Ok(())
+    }
+
+    pub fn accept_all(mut self) -> Self {
+        self.inner.extend_header((ACCEPT, ALL));
+
+        self
+    }
+    pub fn accept_json(mut self) -> Self {
+        self.inner.extend_header((ACCEPT, JSON));
+
+        self
+    }
+
+    pub fn basic_auth(mut self, username: &str, password: Option<&str>) -> Self {
+        let (header, value) = Self::encode_basic_auth(
+            username.as_bytes(),
+            password.map(|p| p.as_bytes()).unwrap_or_default(),
+        );
+        self.inner.extend_header((&header, &value));
+
+        self
+    }
+
+    pub fn bearer_auth(mut self, token: &str) -> Self {
+        Self::set_bearer_auth(&mut self.inner, token);
+
+        self
+    }
+
+    pub fn oauth1(mut self, key: &str, token: &str) -> Self {
+        Self::set_oauth1(&mut self.inner, key, token);
+
+        self
     }
 }

@@ -4,6 +4,8 @@ use crate::http::http1::codec::Http1Codec;
 #[cfg(feature = "http2")]
 use crate::http::http2::codec::Http2Codec;
 use crate::http::request::RequestBuilder;
+#[cfg(feature = "http2")]
+use crate::http::Protocol;
 use crate::http::Response;
 use rustls::client::InvalidDnsNameError;
 use rustls::ClientConnection as TlsClient;
@@ -58,6 +60,14 @@ impl ProtoConn {
         Ok(Self::new(inner_stream, codec))
     }
 
+    #[cfg(feature = "http2")]
+    pub(crate) fn switch_protocol(&mut self, protocol: &Protocol) {
+        match protocol {
+            Protocol::HTTP1 => self.codec = Box::new(Http1Codec::new()),
+            Protocol::HTTP2 => self.codec = Box::new(Http2Codec::new()),
+        }
+    }
+
     fn new(stream: Inner, codec: Box<dyn Codec>) -> Self {
         Self {
             inner: stream,
@@ -93,6 +103,10 @@ impl ProtoConn {
     }
 
     pub fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
+        #[cfg(feature = "http2")]
+        if request.protocol != self.codec.kind() {
+            self.switch_protocol(&request.protocol);
+        }
         let encoded = self.codec.encode_request(request)?;
         self.inner.write_all(&encoded)?;
 

@@ -1,5 +1,4 @@
 mod bearer;
-
 pub use bearer::Access;
 pub use bearer::AccessTokenResponse;
 
@@ -9,6 +8,7 @@ use std::collections::HashMap;
 
 pub(crate) const BASIC: &[u8; 6] = b"Basic ";
 pub(crate) const BEARER: &[u8; 7] = b"Bearer ";
+pub(crate) const OAUTH: &[u8] = b"OAuth ";
 const CLIENT_ID: &str = "client_id";
 const CLIENT_SECRET: &str = "client_secret";
 const KEY: &str = "key";
@@ -16,6 +16,8 @@ const TOKEN: &str = "token";
 const USERNAME: &str = "username";
 const PASSWORD: &str = "password";
 const EMAIL: &str = "email";
+const OAUTH_CONSUMER_KEY: &str = "oauth_consumer_key";
+const OAUTH_TOKEN: &str = "oauth_token";
 const REFRESH_TOKEN: &str = "refresh_token";
 const GRANT_TYPE: &str = "grant_type";
 const SCOPE: &str = "scope";
@@ -38,6 +40,9 @@ impl Authentication {
     pub fn bearer() -> Builder {
         Builder::new().bearer()
     }
+    pub fn oauth1(key: &str, token: &str) -> Builder {
+        Builder::new().oauth1(key, token)
+    }
 }
 
 #[derive(Clone)]
@@ -57,10 +62,10 @@ impl Builder {
             grant: None,
         }
     }
-    pub fn uri(self, uri: &str) -> Self {
+    pub fn url(self, url: &str) -> Self {
         Builder {
             method: self.method,
-            url: Some(uri.to_string()),
+            url: Some(url.to_string()),
             credentials: self.credentials,
             grant: self.grant,
         }
@@ -125,6 +130,14 @@ impl Builder {
         Builder {
             method: self.method,
             credentials: Some(Credentials::email_login(email, password)),
+            url: self.url,
+            grant: self.grant,
+        }
+    }
+    pub fn oauth1(self, key: &str, token: &str) -> Self {
+        Builder {
+            method: Method::OAUTH,
+            credentials: Some(Credentials::oauth1(key, token)),
             url: self.url,
             grant: self.grant,
         }
@@ -194,6 +207,10 @@ impl Credentials {
                 self.value_map.get(KEY).ok_or_else(message)?,
                 self.value_map.get(TOKEN).and_then(deref),
             ),
+            Kind::Oauth1 => (
+                self.value_map.get(OAUTH_CONSUMER_KEY).ok_or_else(message)?,
+                self.value_map.get(OAUTH_TOKEN).and_then(deref),
+            ),
             Kind::RefreshToken => (self.value_map.get(TOKEN).ok_or_else(message)?, None),
         };
 
@@ -246,6 +263,16 @@ impl Credentials {
             HashMap::from([(REFRESH_TOKEN.to_string(), token.to_string())]),
         )
     }
+    pub fn oauth1(key: &str, token: &str) -> Self {
+        Self::new(
+            Placement::HEADER,
+            Kind::Oauth1,
+            HashMap::from([
+                (OAUTH_CONSUMER_KEY.to_string(), key.to_string()),
+                (OAUTH_TOKEN.to_string(), token.to_string()),
+            ]),
+        )
+    }
     pub fn custom(values: Vec<(&str, &str)>) -> Self {
         let mut value_map = HashMap::new();
         for (key, value) in values {
@@ -291,6 +318,7 @@ pub enum Kind {
     KeyTokenPair,
     UserLogin,
     EmailLogin,
+    Oauth1,
     Other,
 }
 
@@ -300,7 +328,7 @@ impl Kind {
             Self::ClientCredentials => "client_credentials".to_string(),
             Self::RefreshToken => "refresh_token".to_string(),
             Self::UserLogin | Self::EmailLogin => "password".to_string(),
-            Self::KeyTokenPair => "token".to_string(),
+            Self::KeyTokenPair | Self::Oauth1 => "token".to_string(),
             Self::Other => "unknown".to_string(),
         }
     }
@@ -322,6 +350,7 @@ impl Default for Placement {
 pub enum Method {
     BASIC,
     BEARER,
+    OAUTH,
     OTHER,
 }
 

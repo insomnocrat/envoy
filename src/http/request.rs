@@ -1,14 +1,7 @@
 use super::{Method, Protocol};
 
-use crate::http::utf8::{CRLF, SP, UTF8};
-use headers::*;
+use crate::http::utf8::UTF8;
 use std::collections::HashMap;
-
-#[derive(Clone, Debug)]
-pub struct Http1Request {
-    pub host: String,
-    pub message: Vec<u8>,
-}
 
 #[derive(Clone, Debug)]
 pub struct RequestBuilder {
@@ -21,53 +14,6 @@ pub struct RequestBuilder {
 }
 
 impl RequestBuilder {
-    pub fn build_http1(self) -> Http1Request {
-        let mut message = Vec::with_capacity(8032);
-        match self.method {
-            Method::GET => message.extend(b"GET "),
-            Method::POST => message.extend(b"POST "),
-            Method::PUT => message.extend(b"PUT "),
-            Method::PATCH => message.extend(b"PATCH "),
-            Method::DELETE => message.extend(b"DELETE "),
-        }
-        if self.url.resource.is_empty() {
-            message.push(SLASH);
-        } else {
-            message.extend(self.url.resource);
-        }
-        if !self.query.is_empty() {
-            message.push(0x3F);
-            for (key, value) in self.query.into_iter() {
-                message.extend(key);
-                message.push(0x3D);
-                message.extend(value);
-                message.extend_from_slice(CRLF);
-            }
-        };
-        message.extend(b" HTTP/1.1\r\n");
-        message.extend_from_slice(HOST);
-        message.extend_from_slice(&self.url.host);
-        message.extend_from_slice(CRLF);
-        let body = self.body.unwrap_or_default();
-        if !body.is_empty() {
-            message.extend_from_slice(CONTENT_LENGTH);
-            message.extend_from_slice(format!("{}\r\n", body.len()).as_bytes());
-        }
-        let colon = [0x3A, SP];
-        for (key, value) in self.headers.into_iter() {
-            message.extend(key);
-            message.extend_from_slice(&colon);
-            message.extend(value);
-            message.extend_from_slice(CRLF);
-        }
-        message.extend(CRLF);
-        message.extend(body);
-
-        Http1Request {
-            host: self.url.host.utf8_lossy().to_string(),
-            message,
-        }
-    }
     pub fn get(url: &str) -> Self {
         Self {
             protocol: Protocol::default(),
@@ -118,23 +64,52 @@ impl RequestBuilder {
             headers: Default::default(),
         }
     }
-    pub fn query(&mut self, query: Vec<(&[u8], &[u8])>) {
+    pub fn extend_query(&mut self, query: Vec<(&[u8], &[u8])>) {
         let query = query.iter().map(|(k, v)| (k.to_vec(), v.to_vec()));
         self.query.extend(query);
     }
 
-    pub fn headers(&mut self, headers: Vec<(&[u8], &[u8])>) {
+    pub fn query(mut self, query: Vec<(&[u8], &[u8])>) -> Self {
+        self.extend_query(query);
+
+        self
+    }
+
+    pub fn extend_headers(&mut self, headers: Vec<(&[u8], &[u8])>) {
         let headers = headers.iter().map(|(k, v)| (k.to_vec(), v.to_vec()));
         self.headers.extend(headers);
     }
 
-    pub fn header(&mut self, header: (&[u8], &[u8])) {
+    pub fn headers(mut self, headers: Vec<(&[u8], &[u8])>) -> Self {
+        self.extend_headers(headers);
+
+        self
+    }
+
+    pub fn extend_header(&mut self, header: (&[u8], &[u8])) {
         let (key, value) = header;
         self.headers.insert(key.to_vec(), value.to_vec());
     }
 
-    pub fn body(&mut self, body: &[u8]) {
+    pub fn header(mut self, header: (&[u8], &[u8])) -> Self {
+        self.extend_header(header);
+
+        self
+    }
+
+    pub fn body_mut(&mut self, body: &[u8]) {
         self.body = Some(body.to_vec());
+    }
+
+    pub fn body(self, body: &[u8]) -> Self {
+        Self {
+            protocol: self.protocol,
+            method: self.method,
+            url: self.url,
+            body: Some(body.to_vec()),
+            query: self.query,
+            headers: self.headers,
+        }
     }
 }
 
@@ -175,17 +150,18 @@ impl From<&[u8]> for Url {
 }
 
 pub mod headers {
-    pub const HOST: &[u8] = b"Host: ";
-    pub const AUTHORIZATION: &[u8] = b"Authorization: ";
-    pub const CONTENT_LENGTH: &[u8] = b"Content-Length: ";
-    pub const USER_AGENT: &[u8] = b"User-Agent: ";
-    pub const ACCEPT: &[u8] = b"Accept: ";
-    pub const ACCEPT_CHARSET: &[u8] = b"Accept-Charset: ";
-    pub const ACCEPT_LANGUAGE: &[u8] = b"Accept-Language: ";
-    pub const CONNECTION: &[u8] = b"Connection: ";
-    pub const MAX_FORWARDS: &[u8] = b"Max-Forwards: ";
-    pub const FROM: &[u8] = b"From: ";
-    pub const REFERER: &[u8] = b"Referer: ";
+    pub const HOST: &[u8] = b"Host";
+    pub const AUTHORIZATION: &[u8] = b"Authorization";
+    pub const CONTENT_LENGTH: &[u8] = b"Content-Length";
+    pub const USER_AGENT: &[u8] = b"User-Agent";
+    pub const ACCEPT: &[u8] = b"Accept";
+    pub const ACCEPT_CHARSET: &[u8] = b"Accept-Charset";
+    pub const ACCEPT_LANGUAGE: &[u8] = b"Accept-Language";
+    pub const CONNECTION: &[u8] = b"Connection";
+    pub const MAX_FORWARDS: &[u8] = b"Max-Forwards";
+    pub const FROM: &[u8] = b"From";
+    pub const REFERER: &[u8] = b"Referer";
+    pub const CONTENT_TYPE: &[u8] = b"Content-Type";
     pub mod values {
         pub const ALL: &[u8] = b"*/*";
         pub const JSON: &[u8] = b"application/json";

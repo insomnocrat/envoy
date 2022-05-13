@@ -1,4 +1,3 @@
-pub use crate::http::request::Http1Request as InnerRequest;
 pub use crate::http::request::RequestBuilder;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::error::SomeError;

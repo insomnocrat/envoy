@@ -8,12 +8,13 @@ use crate::http::http2::window_update::WindowUpdate;
 use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
 use crate::http::utf8::UTF8;
-use crate::http::{Error, Response, Result, Success};
+use crate::http::{Error, Protocol, Response, Result, Success};
 use hpack::{Decoder, Encoder};
 use rustls::{ClientConnection, StreamOwned};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use crate::http::Protocol::HTTP2;
 
 pub struct Http2Codec<'a> {
     pub encoder: Encoder<'a>,
@@ -96,6 +97,10 @@ impl<'a> Codec for Http2Codec<'a> {
         self.update_window(conn)?;
 
         Ok(())
+    }
+
+    fn kind(&self) -> Protocol {
+        HTTP2
     }
 }
 

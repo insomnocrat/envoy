@@ -1,5 +1,5 @@
 use super::{Response, Result};
-use crate::http::{Error, Success};
+use crate::http::{Error, Protocol, Success};
 use crate::rest::response::RequestBuilder;
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
@@ -14,4 +14,5 @@ pub trait Codec: Send {
     fn decode_status(&self, status: &str) -> Result<u16> {
         u16::from_str(&status).map_err(|_e| Error::server("could not parse status code"))
     }
+    fn kind(&self) -> Protocol;
 }

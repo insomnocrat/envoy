@@ -11,15 +11,15 @@ pub(crate) fn print_results(results: Vec<std::time::Duration>) {
 }
 
 pub(crate) fn gen_test_request(res: &str) -> RequestBuilder {
-    let mut request = RequestBuilder::get(&format!("jsonplaceholder.typicode.com/{res}"));
-    request.headers(vec![(b"Accept", b"/*/"), (b"Connection", b"keep-alive")]);
+    let request = RequestBuilder::get(&format!("jsonplaceholder.typicode.com/{res}"))
+        .headers(vec![(b"Accept", b"/*/"), (b"Connection", b"keep-alive")]);
 
     request
 }
 
 pub(crate) fn gen_test_request_2(res: &str) -> RequestBuilder {
-    let mut request = RequestBuilder::get(&format!("dummyapi.io/data/v1/{res}"));
-    request.headers(vec![(b"app-id", b"623e3f74a76d8facdad7758b")]);
+    let request = RequestBuilder::get(&format!("dummyapi.io/data/v1/{res}"))
+        .headers(vec![(b"app-id", b"623e3f74a76d8facdad7758b")]);
 
     request
 }

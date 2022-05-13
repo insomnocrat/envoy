@@ -1,10 +1,12 @@
-pub(crate) mod auth;
+pub mod auth;
 mod config;
-mod handlers;
 #[cfg(feature = "interpreter")]
 mod interpreter;
+
 #[cfg(feature = "interpreter")]
 use interpreter::Interpreter;
+use std::thread;
+use std::time::Duration;
 
 pub use crate::rest::client::config::Config;
 use crate::rest::{
@@ -13,9 +15,10 @@ use crate::rest::{
     Error, Result,
 };
 use crate::HttpClient;
-use std::{thread, time};
+pub use auth::Credentials;
 
 pub type Auth = auth::Authentication;
+pub type AuthBuilder = auth::Builder;
 pub type AuthMethod = auth::Method;
 pub type AuthPlacement = auth::Placement;
 
@@ -48,6 +51,9 @@ impl Client {
     pub fn config() -> Config {
         Config::default()
     }
+    pub fn auth() -> AuthBuilder {
+        AuthBuilder::new()
+    }
 
     pub fn execute(&mut self, request: InnerRequest) -> Result<Response> {
         let response = self.inner.execute(request).map_err(|e| Error::from(e))?;
@@ -79,7 +85,7 @@ impl Client {
     }
 
     fn retry(&mut self, request: InnerRequest, attempt_no: u8) -> Result<Response> {
-        thread::sleep(time::Duration::from_millis(
+        thread::sleep(Duration::from_millis(
             self.config.backoff_proc.calc(attempt_no),
         ));
 
