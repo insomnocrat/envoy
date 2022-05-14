@@ -61,7 +61,7 @@ impl<T: Deref<Target = [u8]>> UTF8Utils for T {
         self.as_ref()
             .into_iter()
             .map(|c| match CAPITALS.contains(c) {
-                true => c + 20,
+                true => c + 32,
                 false => *c,
             })
             .collect()

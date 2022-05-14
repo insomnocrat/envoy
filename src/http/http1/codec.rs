@@ -1,6 +1,6 @@
 use crate::http::codec::Codec;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8_util::{UTF8Parser, UTF8Utils, COLSP, CRLF};
+use crate::http::utf8_utils::{UTF8Parser, UTF8Utils, COLSP, CRLF};
 use crate::http::Protocol::HTTP1;
 use crate::http::{Error, Method, Protocol, Response, Result, Success};
 use crate::rest::request::{CONTENT_LENGTH, HOST};

@@ -12,10 +12,10 @@ pub mod request;
 pub mod status;
 #[cfg(test)]
 pub(crate) mod test_utils;
-pub mod utf8_util;
+pub mod utf8_utils;
 
 use crate::http::error::ErrorKind;
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 pub use error::Error;
 
 type Result<T> = std::result::Result<T, Error>;

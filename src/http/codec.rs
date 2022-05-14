@@ -1,5 +1,5 @@
 use super::{Response, Result};
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 use crate::http::{Error, Protocol, Success};
 use crate::rest::response::RequestBuilder;
 use rustls::ClientConnection as TlsClient;

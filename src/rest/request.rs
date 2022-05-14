@@ -2,7 +2,7 @@ use crate::http::request::headers::AUTHORIZATION;
 pub use crate::http::request::headers::*;
 pub use crate::http::request::RequestBuilder as InnerRequest;
 #[cfg(feature = "multipart")]
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::client::auth::OAUTH;
 use crate::rest::client::{

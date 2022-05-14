@@ -7,7 +7,7 @@ use crate::http::http2::stream::{State, Stream};
 use crate::http::http2::window_update::WindowUpdate;
 use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 use crate::http::Protocol::HTTP2;
 use crate::http::{Error, Protocol, Response, Result, Success};
 use hpack::{Decoder, Encoder};

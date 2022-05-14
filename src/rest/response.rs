@@ -2,7 +2,7 @@ pub use crate::http::request::RequestBuilder;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::error::SomeError;
 use crate::{
-    http::utf8_util::UTF8Utils,
+    http::utf8_utils::UTF8Utils,
     rest::{Error, ErrorKind, HttpError, Result},
 };
 use serde::de::DeserializeOwned;

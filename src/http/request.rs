@@ -1,6 +1,6 @@
 use super::{Method, Protocol};
 
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

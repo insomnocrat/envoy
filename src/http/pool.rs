@@ -1,7 +1,7 @@
 use super::{pooled_conn::PooledConn, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
 use crate::http::request::RequestBuilder;
-use crate::http::utf8_util::UTF8Utils;
+use crate::http::utf8_utils::UTF8Utils;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
