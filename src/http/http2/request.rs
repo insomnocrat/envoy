@@ -1,6 +1,7 @@
 use crate::http::request::RequestBuilder;
 use crate::http::Method;
 
+#[derive(Debug, Clone)]
 pub struct Request {
     pub raw_headers: Vec<(Vec<u8>, Vec<u8>)>,
     pub data: Option<Vec<u8>>,

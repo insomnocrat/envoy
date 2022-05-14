@@ -79,7 +79,7 @@ impl<P: FramePayload> Frame<P> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct FrameHeader {
     pub length: u32,
     pub kind: u8,

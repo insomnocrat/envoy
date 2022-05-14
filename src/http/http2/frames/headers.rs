@@ -2,7 +2,7 @@ use super::Result;
 use super::*;
 use flags::*;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Headers {
     pub pad_length: Option<u8>,
     pub is_exclusive: Option<bool>,

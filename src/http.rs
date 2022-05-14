@@ -20,7 +20,7 @@ pub use error::Error;
 
 type Result<T> = std::result::Result<T, Error>;
 type Success = Result<()>;
-pub type HttpClient = crate::http::client::Client;
+pub type HttpClient = client::Client;
 
 #[derive(Debug, Clone)]
 pub enum Method {
@@ -65,7 +65,7 @@ impl<'a> TryFrom<&[u8]> for Protocol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Response {
     pub protocol: Protocol,
     pub status_code: u16,

@@ -45,7 +45,7 @@ impl Authentication {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Builder {
     method: Method,
     credentials: Option<Credentials>,

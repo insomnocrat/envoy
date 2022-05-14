@@ -9,6 +9,7 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
     inner: InnerResponse,
 }

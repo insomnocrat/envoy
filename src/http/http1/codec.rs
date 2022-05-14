@@ -15,6 +15,7 @@ pub const DANGLING_CHUNK: &[u8; 3] = b"\r\n0";
 pub const CHUNK_END: &str = "\r\n0\r\n\r\n";
 pub const FINAL_CHUNK: &[u8] = b"0\r\n\r\n";
 
+#[derive(Debug, Clone, Copy)]
 pub struct Http1Codec;
 
 impl Codec for Http1Codec {

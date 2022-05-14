@@ -109,6 +109,7 @@ impl<T: Deref<Target = [u8]>> UTF8Utils for T {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UTF8Parser {
     iter: Peekable<IntoIter<u8>>,
 }

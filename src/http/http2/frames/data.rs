@@ -1,6 +1,6 @@
 use super::Result;
 use super::*;
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Data {
     pub pad_length: Option<u8>,
     pub blocks: Vec<u8>,

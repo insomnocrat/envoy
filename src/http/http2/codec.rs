@@ -304,7 +304,7 @@ impl<'a> Http2Codec<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct StreamSettings {
     pub header_table_size: u32,
     pub enable_push: bool,

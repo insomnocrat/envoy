@@ -1,7 +1,7 @@
 use super::*;
 const KIND: u8 = WINDOW_UPDATE;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct WindowUpdate {
     pub window_size_increment: u32,
 }

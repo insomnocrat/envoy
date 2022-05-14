@@ -3,7 +3,7 @@ use rand;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct MultipartForm {
     pub boundary: Vec<u8>,
     pub data: Vec<Vec<u8>>,

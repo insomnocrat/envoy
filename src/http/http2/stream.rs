@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Stream {
     pub id: u32,
     pub state: State,
@@ -22,10 +22,22 @@ impl Stream {
     }
 }
 
+impl Default for Stream {
+    fn default() -> Self {
+        Self::new(1)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum State {
     Idle,
     Open,
     HalfClosed,
     Closed,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self::Idle
+    }
 }
