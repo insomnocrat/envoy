@@ -45,7 +45,7 @@ impl ProtoConn {
         {
             let mut stream = TlsStream::new(tls_client, stream);
             let mut c = Box::new(Http2Codec::new());
-            match c.handshake(&mut stream) {
+            match c.prelude(&mut stream) {
                 Ok(_) => codec = c,
                 Err(_) => codec = Box::new(Http1Codec::new()),
             }

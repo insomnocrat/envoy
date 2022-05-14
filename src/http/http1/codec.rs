@@ -104,7 +104,7 @@ impl Codec for Http1Codec {
         vec![0; 8032]
     }
 
-    fn handshake(&mut self, _stream: &mut TlsStream<TlsClient, TcpStream>) -> Success {
+    fn prelude(&mut self, _stream: &mut TlsStream<TlsClient, TcpStream>) -> Success {
         Ok(())
     }
 

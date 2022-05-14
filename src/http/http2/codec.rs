@@ -87,7 +87,7 @@ impl<'a> Codec for Http2Codec<'a> {
         vec![0; 8192]
     }
 
-    fn handshake(&mut self, conn: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
+    fn prelude(&mut self, conn: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
         let mut handshake = PREFACE.to_vec();
         handshake.extend(SettingsFrame::empty());
         conn.write_all(&handshake)?;
