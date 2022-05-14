@@ -1,12 +1,16 @@
 use crate::http::request::headers::AUTHORIZATION;
 pub use crate::http::request::headers::*;
 pub use crate::http::request::RequestBuilder as InnerRequest;
+#[cfg(feature = "multipart")]
+use crate::http::utf8_util::UTF8Utils;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::client::auth::OAUTH;
 use crate::rest::client::{
     auth::AccessTokenResponse, auth::BASIC, auth::BEARER, AuthMethod, AuthPlacement, Success,
 };
 use crate::rest::error::SomeError;
+#[cfg(feature = "multipart")]
+use crate::rest::multipart::MultipartForm;
 use crate::rest::request::values::{ALL, JSON};
 use crate::{
     rest::{response::Response, Error, ErrorKind, Result},
@@ -55,6 +59,24 @@ impl<'a> Request<'a> {
         let body = serde_json::to_vec(body).unwrap();
         Self {
             inner: self.inner.body(&body).header((CONTENT_TYPE, JSON)),
+            client_ref: self.client_ref,
+        }
+    }
+
+    #[cfg(feature = "multipart")]
+    pub fn multipart_body<T: AsRef<[u8]>>(mut self, body: &[(T, T)]) -> Self {
+        let body = MultipartForm::from(body);
+        self.extend_header(
+            CONTENT_TYPE,
+            format!(
+                "multipart/form-data; boundary={}",
+                body.boundary.as_utf8_lossy()
+            )
+            .as_bytes(),
+        );
+
+        Self {
+            inner: self.inner.body(body.to_bytes().as_slice()),
             client_ref: self.client_ref,
         }
     }

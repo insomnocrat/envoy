@@ -1,6 +1,6 @@
 use super::{Method, Protocol};
 
-use crate::http::utf8::UTF8;
+use crate::http::utf8_util::UTF8Utils;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -88,7 +88,7 @@ impl RequestBuilder {
 
     pub fn extend_header(&mut self, header: (&[u8], &[u8])) {
         let (key, value) = header;
-        self.headers.insert(key.to_vec(), value.to_vec());
+        self.headers.insert(key.to_lower(), value.to_vec());
     }
 
     pub fn header(mut self, header: (&[u8], &[u8])) -> Self {
@@ -125,7 +125,7 @@ pub struct Url {
 
 impl Url {
     pub(crate) fn authority(&self) -> String {
-        format!("{}:443", self.host.utf8_lossy())
+        format!("{}:443", self.host.as_utf8_lossy())
     }
 }
 

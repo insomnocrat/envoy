@@ -1,18 +1,19 @@
-use crate::http::buffer::Buffer;
 use crate::http::codec::Codec;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8::{CHUNK_END, CR, CRLF, FINAL_CHUNK, LF, SP, UTF8};
+use crate::http::utf8_util::{UTF8Parser, UTF8Utils, COLSP, CRLF};
+use crate::http::Protocol::HTTP1;
 use crate::http::{Error, Method, Protocol, Response, Result, Success};
 use crate::rest::request::{CONTENT_LENGTH, HOST};
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
 use std::collections::HashMap;
 use std::io::Read;
-use std::iter::Peekable;
 use std::net::TcpStream;
 use std::str::FromStr;
-use std::vec::IntoIter;
-use crate::http::Protocol::HTTP1;
+
+pub const DANGLING_CHUNK: &[u8; 3] = b"\r\n0";
+pub const CHUNK_END: &str = "\r\n0\r\n\r\n";
+pub const FINAL_CHUNK: &[u8] = b"0\r\n\r\n";
 
 pub struct Http1Codec;
 
@@ -41,21 +42,21 @@ impl Codec for Http1Codec {
             }
         };
         message.extend(b" HTTP/1.1\r\n");
-        let colon = &[0x3A, SP];
         message.extend_from_slice(HOST);
-        message.extend_from_slice(colon);
+        message.extend_from_slice(COLSP);
         message.extend_from_slice(&request.url.host);
         message.extend_from_slice(CRLF);
+        for (key, value) in request.headers.into_iter() {
+            message.extend(key);
+            message.extend_from_slice(COLSP);
+            message.extend(value);
+            message.extend_from_slice(CRLF);
+        }
         let body = request.body.unwrap_or_default();
         if !body.is_empty() {
             message.extend_from_slice(CONTENT_LENGTH);
+            message.extend_from_slice(COLSP);
             message.extend_from_slice(format!("{}\r\n", body.len()).as_bytes());
-        }
-        for (key, value) in request.headers.into_iter() {
-            message.extend(key);
-            message.extend_from_slice(colon);
-            message.extend(value);
-            message.extend_from_slice(CRLF);
         }
         message.extend(CRLF);
         message.extend(body);
@@ -77,21 +78,21 @@ impl Codec for Http1Codec {
                 return Err(Error::server("no server response"));
             }
         }
-        let mut buffer = buffer.into_iter().peekable();
-        let mut response = Self::decode_response_headers(&mut buffer)?;
+        let mut parser = buffer.into_utf8_parser();
+        let mut response = self.decode_response_headers(&mut parser)?;
         if let Some(content_length) = response.headers.get("Content-Length") {
             let content_length = Self::parse_content_length(content_length)?;
-            response.body = buffer.trim_null();
+            parser.read_to_end(&mut response.body)?;
             if (response.body.len() as u32) < content_length {
                 self.stream_body(stream, &mut response.body, content_length as usize)?;
             }
         } else if let Some(encoding) = response.headers.get("Transfer-Encoding") {
             if encoding.eq("chunked") {
-                let chunk_size = buffer.read_line();
-                response.body = buffer.trim();
-                if let Some(chunk_size) = chunk_size {
-                    self.chunk(stream, chunk_size, &mut response.body)?;
-                }
+                let mut chunk_size = Vec::with_capacity(5);
+                parser.read_to_crlf(&mut chunk_size)?;
+                response.body = parser.to_vec().trim_crlf().trim_chars(DANGLING_CHUNK);
+                if chunk_size.len() != 0 {}
+                self.chunk(stream, chunk_size, &mut response.body)?;
             }
         }
 
@@ -119,21 +120,23 @@ impl Http1Codec {
         u32::from_str(cl).map_err(|_| Error::server("invalid content length"))
     }
 
-    pub fn decode_response_headers(bytes: &mut Peekable<IntoIter<u8>>) -> Result<Response> {
-        let version = bytes.read_to_space().as_slice().try_into()?;
-        let potential_status_code = bytes.read_to_space().utf8()?;
-        let status_code = u16::from_str(&potential_status_code)
-            .map_err(|_e| Error::server("could not parse status code"))?;
-        bytes.read_line();
+    pub fn decode_response_headers(&self, parser: &mut UTF8Parser) -> Result<Response> {
+        let mut version = Vec::with_capacity(5);
+        parser.read_to_space(&mut version)?;
+        let version = version.as_slice().try_into()?;
+        let mut potential_status_code = Vec::with_capacity(8);
+        parser.read_to_space(&mut potential_status_code)?;
+        let status_code = self.decode_status(&potential_status_code)?;
+        parser.skip_to_crlf();
         let mut headers = HashMap::new();
-        while let Some(line) = bytes.read_line() {
-            let line = line.utf8()?;
+        let header_lines = parser.take_crlf_strings();
+        for line in header_lines.into_iter() {
             let (key, value) = line
                 .split_once(": ")
                 .ok_or_else(|| Error::server("could not parse header"))?;
             headers.insert(key.to_string(), value.to_string());
         }
-        while bytes.next_if(|b| *b == CR || *b == LF).is_some() {}
+        parser.skip_chars(CRLF);
 
         Ok(Response {
             protocol: version,
@@ -144,15 +147,16 @@ impl Http1Codec {
     }
 
     fn parse_chunks(bytes: &[u8]) -> Vec<u8> {
-        let mut parsed = Vec::with_capacity(bytes.len());
-        let mut iter = bytes.iter().peekable();
-        while let Some(line) = iter.read_line() {
+        let mut parser = bytes.into_utf8_parser();
+        let mut chunks = Vec::with_capacity(bytes.len());
+        let lines = parser.take_crlf();
+        for line in lines {
             if !line.is_hex() {
-                parsed.extend(line);
+                chunks.extend(line)
             }
         }
 
-        parsed
+        chunks
     }
 
     fn stream_body(
@@ -163,7 +167,7 @@ impl Http1Codec {
     ) -> Success {
         let mut buffer = self.empty_buffer();
         'stream: while 0 != stream.read(&mut buffer)? {
-            let input = buffer.trim_null();
+            let input = buffer.strip_null();
             body.extend(input.as_slice());
             if body.len() >= content_length {
                 break 'stream;
@@ -180,12 +184,12 @@ impl Http1Codec {
         chunk_size: Vec<u8>,
         body: &mut Vec<u8>,
     ) -> Success {
-        let hex = chunk_size.utf8_lossy().to_string();
+        let hex = chunk_size.as_utf8_lossy().to_string();
         let encoded_chunk =
             i32::from_str_radix(&hex, 16).map_err(|_| Error::server("invalid chunk encoding"))?;
         if encoded_chunk != 0 {
             if encoded_chunk <= (body.len() as i32) {
-                if body.utf8_lossy().contains(CHUNK_END) {
+                if body.as_utf8_lossy().contains(CHUNK_END) {
                     *body = body[0..(body.len() - 7)].to_vec();
                 }
                 *body = Self::parse_chunks(&body);
@@ -201,12 +205,12 @@ impl Http1Codec {
         let mut buffer = self.empty_buffer();
         let mut body = Vec::with_capacity(buffer.len());
         'stream: while 0 != stream.read(&mut buffer)? {
-            if buffer.utf8_lossy().contains(CHUNK_END) {
-                let buffer = buffer.trim_null();
+            if buffer.as_utf8_lossy().contains(CHUNK_END) {
+                let buffer = buffer.strip_null();
                 body.extend(&buffer[0..(buffer.len() - 7)]);
                 break 'stream;
             }
-            body.extend(buffer.trim_null().as_slice());
+            body.extend(buffer.strip_null().as_slice());
             buffer = self.empty_buffer();
         }
 

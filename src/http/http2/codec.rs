@@ -7,14 +7,14 @@ use crate::http::http2::stream::{State, Stream};
 use crate::http::http2::window_update::WindowUpdate;
 use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8::UTF8;
+use crate::http::utf8_util::UTF8Utils;
+use crate::http::Protocol::HTTP2;
 use crate::http::{Error, Protocol, Response, Result, Success};
 use hpack::{Decoder, Encoder};
 use rustls::{ClientConnection, StreamOwned};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use crate::http::Protocol::HTTP2;
 
 pub struct Http2Codec<'a> {
     pub encoder: Encoder<'a>,
@@ -159,7 +159,7 @@ impl<'a> Http2Codec<'a> {
             .decode(headers)
             .map_err(|_| Error::server("could not decompress headers"))?
             .into_iter()
-            .map(|(k, v)| (k.utf8_lossy().to_string(), v.utf8_lossy().to_string()))
+            .map(|(k, v)| (k.as_utf8_lossy().to_string(), v.as_utf8_lossy().to_string()))
             .collect::<HashMap<String, String>>())
     }
 
@@ -201,7 +201,7 @@ impl<'a> Http2Codec<'a> {
             .ok_or_else(|| Error::server("malformed response"))?;
         Ok(Response {
             protocol: Default::default(),
-            status_code: self.decode_status(status_code)?,
+            status_code: self.decode_status(status_code.as_bytes())?,
             headers,
             body: stream.response_data,
         })
@@ -269,7 +269,11 @@ impl<'a> Http2Codec<'a> {
         let frame: GoAwayFrame = self.expect_payload(stream, frame_header)?;
         let error_message = match frame.payload.additional_debug_data.is_empty() {
             true => "connection reset by server".to_string(),
-            false => frame.payload.additional_debug_data.utf8_lossy().to_string(),
+            false => frame
+                .payload
+                .additional_debug_data
+                .as_utf8_lossy()
+                .to_string(),
         };
 
         Err(Error::connection(

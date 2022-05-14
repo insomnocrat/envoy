@@ -1,5 +1,7 @@
 pub mod client;
 mod error;
+#[cfg(feature = "multipart")]
+mod multipart;
 pub mod request;
 pub mod response;
 #[cfg(test)]

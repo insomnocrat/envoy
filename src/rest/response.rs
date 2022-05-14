@@ -2,7 +2,7 @@ pub use crate::http::request::RequestBuilder;
 pub use crate::http::Response as InnerResponse;
 use crate::rest::error::SomeError;
 use crate::{
-    http::utf8::UTF8,
+    http::utf8_util::UTF8Utils,
     rest::{Error, ErrorKind, HttpError, Result},
 };
 use serde::de::DeserializeOwned;
@@ -51,10 +51,10 @@ impl Response {
         self.inner.status_code == 200
     }
     pub fn text(&self) -> String {
-        self.inner.body.utf8_lossy().to_string()
+        self.inner.body.as_utf8_lossy().to_string()
     }
     pub fn utf8(&self) -> Result<String> {
-        self.inner.body.utf8().map_err(|e| {
+        self.inner.body.as_utf8().map_err(|e| {
             let http_error: HttpError = e.into();
             http_error.into()
         })

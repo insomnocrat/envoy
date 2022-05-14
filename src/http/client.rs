@@ -1,5 +1,3 @@
-#[cfg(multihost)]
-use super::pool::HostPool;
 use super::{pooled_conn::PooledConn, Response, Result};
 use crate::http::request::RequestBuilder;
 
@@ -30,23 +28,5 @@ impl Client {
         self.connection = Some(PooledConn::new(&host)?);
 
         Ok(())
-    }
-}
-
-#[cfg(feature = "multihost")]
-pub struct ClientMultiHost {
-    pool: HostPool,
-}
-#[cfg(feature = "multihost")]
-impl ClientMultiHost {
-    pub fn new() -> Self {
-        Self {
-            pool: HostPool::new(),
-        }
-    }
-
-    pub fn execute(&mut self, request: RequestBuilder) -> Result<Response> {
-        self.pool.send_request(request)?;
-        self.pool.fetch_response()
     }
 }

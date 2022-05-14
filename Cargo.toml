@@ -18,12 +18,14 @@ chrono = "*"
 serde_json = {version = "*", optional = true}
 base64 = "*"
 convert_case = {version = "*", optional = true}
-hpack = "*"
+hpack = {version = "*", optional = true}
+rand = {version = "*", optional = true}
 
 
 [features]
-default = ["rest"]
+default = ["rest", "multipart"]
 rest = ["serde_json", "serde"]
 multihost = []
-http2 = []
+http2 = ["hpack"]
 interpreter = ["rest", "convert_case"]
+multipart = ["rand", "rest"]

@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-
-pub mod buffer;
 pub mod client;
 mod codec;
 pub mod error;
@@ -14,10 +12,10 @@ pub mod request;
 pub mod status;
 #[cfg(test)]
 pub(crate) mod test_utils;
-pub mod utf8;
+pub mod utf8_util;
 
 use crate::http::error::ErrorKind;
-use crate::http::utf8::UTF8;
+use crate::http::utf8_util::UTF8Utils;
 pub use error::Error;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -60,7 +58,7 @@ impl<'a> TryFrom<&[u8]> for Protocol {
             #[cfg(feature = "http2")]
             b"HTTP/2.0" => Ok(Self::HTTP2),
             _ => Err(Error::new(
-                &format!("invalid http protocol {}", bytes.utf8_lossy()),
+                &format!("invalid http protocol {}", bytes.as_utf8_lossy()),
                 ErrorKind::Server,
             )),
         }

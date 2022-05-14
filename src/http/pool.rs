@@ -1,7 +1,7 @@
 use super::{pooled_conn::PooledConn, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
 use crate::http::request::RequestBuilder;
-use crate::http::utf8::UTF8;
+use crate::http::utf8_util::UTF8Utils;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
@@ -35,7 +35,7 @@ impl HostPool {
             let request_rx = request_rx;
             loop {
                 let request: RequestBuilder = request_rx.recv().unwrap();
-                let host = request.url.host.utf8().unwrap();
+                let host = request.url.host.as_utf8().unwrap();
                 let connection = pool.host(&host);
                 let connection = match connection {
                     Ok(i) => i,
