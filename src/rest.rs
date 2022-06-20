@@ -2,6 +2,7 @@ pub mod client;
 mod error;
 #[cfg(feature = "multipart")]
 mod multipart;
+mod params;
 pub mod request;
 pub mod response;
 #[cfg(test)]
