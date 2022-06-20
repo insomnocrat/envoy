@@ -1,3 +1,4 @@
+use crate::http::request::RequestBuilder;
 use crate::http::test_utils::*;
 use crate::http::Response;
 use crate::HttpClient;
@@ -30,4 +31,16 @@ fn get_users2() {
     let request = gen_test_request_2("user");
     let mut client = HttpClient::new();
     iterate_request(&mut client, request, 100, None);
+}
+
+#[test]
+fn query_test() {
+    let mut client = HttpClient::new();
+    iterate_request(
+        &mut client,
+        RequestBuilder::get(&format!("api.agify.io"))
+            .query(vec![("name".as_bytes(), "isaac".as_bytes())]),
+        50,
+        None,
+    );
 }

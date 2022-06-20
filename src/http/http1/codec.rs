@@ -39,7 +39,6 @@ impl Codec for Http1Codec {
                 message.extend(key);
                 message.push(0x3D);
                 message.extend(value);
-                message.extend_from_slice(CRLF);
             }
         };
         message.extend(b" HTTP/1.1\r\n");
