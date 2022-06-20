@@ -12,6 +12,7 @@ impl Request {
         method: Method,
         authority: &[u8],
         resource: &[u8],
+        query: Vec<(Vec<u8>, Vec<u8>)>,
         custom_capacity: usize,
     ) -> Vec<(Vec<u8>, Vec<u8>)> {
         let mut headers = Vec::with_capacity(custom_capacity + 5);
@@ -22,10 +23,18 @@ impl Request {
             Method::PATCH => to_owned_header(headers::PATCH),
             Method::DELETE => to_owned_header(headers::DELETE),
         };
-        let resource = match resource.is_empty() {
+        let mut resource = match resource.is_empty() {
             true => b"/".to_vec(),
             false => resource.to_vec(),
         };
+        if !query.is_empty() {
+            resource.push(0x3f);
+            for (key, value) in query.into_iter() {
+                resource.extend(key);
+                resource.push(0x3D);
+                resource.extend(value);
+            }
+        }
         headers.extend(vec![
             method,
             (headers::PATH.to_vec(), resource),
@@ -43,6 +52,7 @@ impl From<RequestBuilder> for Request {
             builder.method,
             &builder.url.host,
             &builder.url.resource,
+            builder.query,
             builder.headers.len(),
         );
         headers.extend(builder.headers.into_iter());

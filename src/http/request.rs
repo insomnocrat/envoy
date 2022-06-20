@@ -1,5 +1,4 @@
 use super::{Method, Protocol};
-
 use crate::http::utf8_utils::UTF8Utils;
 use std::collections::HashMap;
 
@@ -9,7 +8,7 @@ pub struct RequestBuilder {
     pub method: Method,
     pub url: Url,
     pub body: Option<Vec<u8>>,
-    pub query: HashMap<Vec<u8>, Vec<u8>>,
+    pub query: Vec<(Vec<u8>, Vec<u8>)>,
     pub headers: HashMap<Vec<u8>, Vec<u8>>,
 }
 
