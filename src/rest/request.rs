@@ -74,6 +74,22 @@ impl<'a> Request<'a> {
         }
     }
 
+    pub fn opt_query<T: AsRef<[u8]>>(self, params: Option<&[(T, T)]>) -> Self {
+        let inner = match params {
+            Some(params) => self.inner.query(
+                params
+                    .into_iter()
+                    .map(|(k, v)| (k.as_ref(), v.as_ref()))
+                    .collect(),
+            ),
+            None => self.inner,
+        };
+        Self {
+            inner,
+            client_ref: self.client_ref,
+        }
+    }
+
     #[cfg(feature = "multipart")]
     pub fn multipart_body<T: AsRef<[u8]>>(mut self, body: &[(T, T)]) -> Self {
         let body = MultipartForm::from(body);
