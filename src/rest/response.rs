@@ -66,4 +66,10 @@ impl Response {
     pub fn headers(&self) -> &HashMap<String, String> {
         &self.inner.headers
     }
+    pub fn assert(&self) {
+        assert!(self.is_ok())
+    }
+    pub fn assert_err(&self) {
+        assert!(self.is_error())
+    }
 }

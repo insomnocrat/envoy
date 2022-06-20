@@ -63,6 +63,17 @@ impl<'a> Request<'a> {
         }
     }
 
+    pub fn query<T: AsRef<[u8]>>(self, params: &[(T, T)]) -> Self {
+        let query = params
+            .into_iter()
+            .map(|(k, v)| (k.as_ref(), v.as_ref()))
+            .collect();
+        Self {
+            inner: self.inner.query(query),
+            client_ref: self.client_ref,
+        }
+    }
+
     #[cfg(feature = "multipart")]
     pub fn multipart_body<T: AsRef<[u8]>>(mut self, body: &[(T, T)]) -> Self {
         let body = MultipartForm::from(body);
