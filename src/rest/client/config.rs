@@ -1,16 +1,37 @@
-use crate::rest::client::auth::Authentication;
-use crate::rest::client::Auth;
+use crate::rest::client::auth::Grant;
+use crate::rest::client::{Auth, AuthBuilder};
 use crate::rest::{Client, Error, Result};
 use std::collections::HashMap;
 
 pub struct Config {
+    pub auth: Option<Auth>,
+    pub backoff_proc: BackOffProcedure,
+    pub base_url: String,
+    pub required_headers: HashMap<String, String>,
+}
+
+impl From<ConfigBuilder> for Config {
+    fn from(builder: ConfigBuilder) -> Self {
+        Self {
+            auth: match builder.auth {
+                Some(auth) => Some(auth.finalize()),
+                None => None,
+            },
+            backoff_proc: builder.backoff_proc,
+            base_url: builder.base_url,
+            required_headers: builder.required_headers,
+        }
+    }
+}
+
+pub struct ConfigBuilder {
+    pub(crate) auth: Option<AuthBuilder>,
     pub(crate) backoff_proc: BackOffProcedure,
     pub(crate) base_url: String,
     pub(crate) required_headers: HashMap<String, String>,
-    pub(crate) auth: Option<Authentication>,
 }
 
-impl Default for Config {
+impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             backoff_proc: BackOffProcedure::default(),
@@ -21,7 +42,7 @@ impl Default for Config {
     }
 }
 
-impl From<&str> for Config {
+impl From<&str> for ConfigBuilder {
     fn from(base_url: &str) -> Self {
         Self {
             backoff_proc: Default::default(),
@@ -32,7 +53,7 @@ impl From<&str> for Config {
     }
 }
 
-impl Config {
+impl ConfigBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -86,12 +107,129 @@ impl Config {
             auth: self.auth,
         }
     }
-    pub fn auth(self, auth: Auth) -> Self {
+    pub fn auth(self, auth: AuthBuilder) -> Self {
         Self {
             backoff_proc: self.backoff_proc,
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+        }
+    }
+
+    pub fn basic_auth(self) -> Self {
+        let auth = self.set_auth().basic();
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn bearer_auth(self) -> Self {
+        let auth = self.set_auth().bearer();
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn oauth1(self, key: &str, token: &str) -> Self {
+        let auth = self.set_auth().oauth1(key, token);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn refresh_token(self, token: &str) -> Self {
+        let auth = self.set_auth().refresh_token(token);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn user_login(self, username: &str, password: &str) -> Self {
+        let auth = self.set_auth().user_login(username, password);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn email_login(self, email: &str, password: &str) -> Self {
+        let auth = self.set_auth().email_login(email, password);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn client_credentials(self, client_id: &str, client_secret: &str) -> Self {
+        let auth = self.set_auth().client_credentials(client_id, client_secret);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn key_token(self, key: &str, token: &str) -> Self {
+        let auth = self.set_auth().key_token(key, token);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn custom_credentials(self, credentials: Vec<(&str, &str)>) -> Self {
+        let auth = self.set_auth().custom_credentials(credentials);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn auth_url(self, url: &str) -> Self {
+        let auth = self.set_auth().url(url);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    pub fn auth_grant(self, grant: Grant) -> Self {
+        let auth = self.set_auth().with_grant(grant);
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: Some(auth),
+        }
+    }
+
+    fn set_auth(&self) -> AuthBuilder {
+        match &self.auth {
+            Some(auth) => auth.clone(),
+            None => Auth::new(),
         }
     }
 }

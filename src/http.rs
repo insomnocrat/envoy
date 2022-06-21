@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+
 pub mod client;
 mod codec;
 pub mod error;
@@ -49,6 +51,17 @@ impl Default for Protocol {
     }
 }
 
+impl Display for Protocol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let p = match &self {
+            Self::HTTP1 => "HTTP/1.1",
+            #[cfg(feature = "http2")]
+            Self::HTTP2 => "HTTP/2",
+        };
+        write!(f, "{p}")
+    }
+}
+
 impl<'a> TryFrom<&[u8]> for Protocol {
     type Error = Error;
 
@@ -71,4 +84,17 @@ pub struct Response {
     pub status_code: u16,
     pub headers: HashMap<String, String>,
     pub body: Vec<u8>,
+}
+
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Response {{\nprotocol: {},\nstatus_code: {},\nheaders: {:#?},\nbody: {}\n}}",
+            self.protocol,
+            self.status_code,
+            self.headers,
+            self.body.as_utf8_lossy()
+        )
+    }
 }

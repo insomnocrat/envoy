@@ -19,9 +19,8 @@ fn get_user() {
     let mut client = dummy_api_client();
     for _ in 0..101 {
         let start = time::Instant::now();
-        let response = client.get("data/v1/user").send().unwrap();
+        client.get("data/v1/user").send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        assert!(response.is_ok());
         results.push(end);
     }
     print_results(results);
@@ -57,9 +56,8 @@ fn put() {
     user.title = "Test".to_string();
     for _ in 0..101 {
         let start = time::Instant::now();
-        let result = client.put(&resource).body(&user).send().unwrap();
+        client.put(&resource).body(&user).send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        assert!(result.is_ok());
         results.push(end);
     }
     print_results(results);
@@ -106,9 +104,8 @@ fn post_and_delete() {
             .expect_json::<User>()
             .unwrap();
         let route = format!("data/v1/user/{}", user.id);
-        let result = client.delete(&route).send().unwrap();
+        client.delete(&route).send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        assert!(result.is_ok());
         results.push(end);
     }
     print_results(results);
@@ -120,9 +117,8 @@ pub fn query_test() {
     let mut client = crate::RestClient::new("api.agify.io");
     for _ in 0..51 {
         let start = time::Instant::now();
-        let result = client.get("/").query(&[("name", "isaac")]).send().unwrap();
+        client.get("/").query(&[("name", "isaac")]).send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        result.assert();
         results.push(end);
     }
     print_results(results);
@@ -142,9 +138,8 @@ pub fn query_serialize_test() {
     };
     for _ in 0..51 {
         let start = time::Instant::now();
-        let result = client.get("/").query(&query).send().unwrap();
+        client.get("/").query(&query).send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        result.assert();
         results.push(end);
     }
     print_results(results);
@@ -159,9 +154,22 @@ pub fn opt_query_serialize_test() {
     });
     for _ in 0..51 {
         let start = time::Instant::now();
-        let result = client.get("/").opt_query(query.clone()).send().unwrap();
+        client.get("/").opt_query(query.clone()).send().unwrap();
         let end = time::Instant::now().duration_since(start);
-        result.assert();
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[test]
+pub fn opt_query_serialize_test2() {
+    let mut results = Vec::with_capacity(50);
+    let mut client = crate::RestClient::new("api.agify.io");
+    let query: Option<TestQuery> = None;
+    for _ in 0..51 {
+        let start = time::Instant::now();
+        client.get("/").opt_query(query.clone()).send().unwrap_err();
+        let end = time::Instant::now().duration_since(start);
         results.push(end);
     }
     print_results(results);

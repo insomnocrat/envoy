@@ -8,7 +8,8 @@ use interpreter::Interpreter;
 use std::thread;
 use std::time::Duration;
 
-pub use crate::rest::client::config::Config;
+use crate::rest::client::config::Config;
+pub use crate::rest::client::config::ConfigBuilder;
 use crate::rest::{
     request::{InnerRequest, Request},
     response::Response,
@@ -26,17 +27,17 @@ pub type Success = ();
 
 pub struct Client {
     pub(crate) inner: HttpClient,
-    pub(crate) config: Config,
-    pub(crate) access: Option<auth::Access>,
+    pub config: Config,
+    pub access: Option<auth::Access>,
     #[cfg(feature = "interpreter")]
     pub interpreter: Interpreter,
 }
 
-impl From<Config> for Client {
-    fn from(config: Config) -> Self {
+impl From<ConfigBuilder> for Client {
+    fn from(config: ConfigBuilder) -> Self {
         Self {
             inner: HttpClient::new(),
-            config,
+            config: config.into(),
             access: None,
             #[cfg(feature = "interpreter")]
             interpreter: Interpreter::default(),
@@ -46,10 +47,10 @@ impl From<Config> for Client {
 
 impl Client {
     pub fn new(base_url: &str) -> Self {
-        Config::from(base_url).into()
+        ConfigBuilder::from(base_url).into()
     }
-    pub fn config() -> Config {
-        Config::default()
+    pub fn config() -> ConfigBuilder {
+        ConfigBuilder::default()
     }
     pub fn auth() -> AuthBuilder {
         AuthBuilder::new()

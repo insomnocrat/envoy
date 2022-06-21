@@ -8,6 +8,7 @@ use crate::{
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
@@ -37,6 +38,12 @@ impl From<Response> for Result<Response> {
     }
 }
 
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
 impl Response {
     pub fn json<T>(&self) -> Result<T>
     where
@@ -49,7 +56,7 @@ impl Response {
         self.inner.status_code != 200
     }
     pub fn is_ok(&self) -> bool {
-        self.inner.status_code > 200 && self.inner.status_code < 300
+        self.inner.status_code >= 200 && self.inner.status_code < 300
     }
     pub fn text(&self) -> String {
         self.inner.body.as_utf8_lossy().to_string()
