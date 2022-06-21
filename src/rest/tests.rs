@@ -128,7 +128,7 @@ pub fn query_test() {
     print_results(results);
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 struct TestQuery {
     name: String,
 }
@@ -143,6 +143,23 @@ pub fn query_serialize_test() {
     for _ in 0..51 {
         let start = time::Instant::now();
         let result = client.get("/").query(&query).send().unwrap();
+        let end = time::Instant::now().duration_since(start);
+        result.assert();
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[test]
+pub fn opt_query_serialize_test() {
+    let mut results = Vec::with_capacity(50);
+    let mut client = crate::RestClient::new("api.agify.io");
+    let query = Some(TestQuery {
+        name: "Isaac".to_string(),
+    });
+    for _ in 0..51 {
+        let start = time::Instant::now();
+        let result = client.get("/").opt_query(query.clone()).send().unwrap();
         let end = time::Instant::now().duration_since(start);
         result.assert();
         results.push(end);

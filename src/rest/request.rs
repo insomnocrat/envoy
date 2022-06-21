@@ -63,8 +63,8 @@ impl<'a> Request<'a> {
         }
     }
 
-    pub fn query<T: serde::Serialize + Sized>(mut self, params: T) -> Self {
-        let query = serde_urlencoded::to_string(params).unwrap();
+    pub fn query<T: serde::Serialize + Sized>(mut self, query: T) -> Self {
+        let query = serde_urlencoded::to_string(query).unwrap();
         self.inner.set_query(query.into_bytes());
         Self {
             inner: self.inner,
@@ -72,19 +72,10 @@ impl<'a> Request<'a> {
         }
     }
 
-    pub fn opt_query<T: AsRef<[u8]>>(self, params: Option<&[(T, T)]>) -> Self {
-        let inner = match params {
-            Some(params) => self.inner.query(
-                params
-                    .into_iter()
-                    .map(|(k, v)| (k.as_ref(), v.as_ref()))
-                    .collect(),
-            ),
-            None => self.inner,
-        };
-        Self {
-            inner,
-            client_ref: self.client_ref,
+    pub fn opt_query<T: serde::Serialize + Sized>(self, query: Option<T>) -> Self {
+        match query {
+            Some(query) => self.query(query),
+            None => self,
         }
     }
 
