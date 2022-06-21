@@ -50,6 +50,8 @@ impl Response {
     }
     pub fn is_ok(&self) -> bool {
         self.inner.status_code == 200
+            || self.inner.status_code == 201
+            || self.inner.status_code == 202
     }
     pub fn text(&self) -> String {
         self.inner.body.as_utf8_lossy().to_string()
