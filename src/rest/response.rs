@@ -49,9 +49,7 @@ impl Response {
         self.inner.status_code != 200
     }
     pub fn is_ok(&self) -> bool {
-        self.inner.status_code == 200
-            || self.inner.status_code == 201
-            || self.inner.status_code == 202
+        self.inner.status_code > 200 && self.inner.status_code < 300
     }
     pub fn text(&self) -> String {
         self.inner.body.as_utf8_lossy().to_string()
