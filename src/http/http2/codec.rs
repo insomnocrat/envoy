@@ -9,7 +9,7 @@ use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
 use crate::http::utf8_utils::UTF8Utils;
 use crate::http::Protocol::HTTP2;
-use crate::http::{Error, Protocol, Response, Result, Success};
+use crate::http::{proto_conn::H2, Error, Protocol, Response, Result, Success};
 use hpack::{Decoder, Encoder};
 use rustls::{ClientConnection, StreamOwned};
 use std::collections::HashMap;
@@ -91,6 +91,14 @@ impl<'a> Codec for Http2Codec<'a> {
         let mut handshake = PREFACE.to_vec();
         handshake.extend(SettingsFrame::empty());
         conn.write_all(&handshake)?;
+        match conn.conn.alpn_protocol() {
+            Some(protocol) => {
+                if *protocol != *H2 {
+                    return Err(Error::server("http2 protocol rejected"));
+                }
+            }
+            None => return Err(Error::server("alpn protocol not set")),
+        }
         let frame: SettingsFrame = self.expect_frame(conn)?;
         self.settings.update(frame.payload);
         Self::ack_settings(conn)?;

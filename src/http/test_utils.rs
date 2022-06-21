@@ -1,5 +1,5 @@
 use crate::http::request::RequestBuilder;
-use crate::http::{HttpClient, Response};
+use crate::http::{HttpClient, Protocol, Response};
 
 pub(crate) fn print_results(results: Vec<std::time::Duration>) {
     for (_i, _end) in results.iter().enumerate() {
@@ -11,10 +11,14 @@ pub(crate) fn print_results(results: Vec<std::time::Duration>) {
 }
 
 pub(crate) fn gen_test_request(res: &str) -> RequestBuilder {
-    let request = RequestBuilder::get(&format!("jsonplaceholder.typicode.com/{res}"))
-        .headers(vec![(b"Accept", b"/*/"), (b"Connection", b"keep-alive")]);
-
-    request
+    let request = RequestBuilder::get(&format!("jsonplaceholder.typicode.com/{res}"));
+    match request.protocol {
+        Protocol::HTTP1 => {
+            request.headers(vec![(b"Accept", b"/*/"), (b"Connection", b"keep-alive")])
+        }
+        #[cfg(feature = "http2")]
+        Protocol::HTTP2 => request,
+    }
 }
 
 pub(crate) fn gen_test_request_2(res: &str) -> RequestBuilder {
@@ -32,7 +36,9 @@ pub(crate) fn iterate_request(
 ) {
     let evaluation = match evaluation {
         Some(e) => e,
-        None => Box::new(|response: Response| response.status_code == 200),
+        None => {
+            Box::new(|response: Response| response.status_code >= 200 && response.status_code < 300)
+        }
     };
     let mut results = Vec::with_capacity(amount);
     for _ in 0..amount + 1 {

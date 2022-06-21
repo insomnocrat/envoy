@@ -24,3 +24,14 @@ fn dummy_put() {
     let mut client = HttpClient::new();
     iterate_request(&mut client, request, 20, None);
 }
+
+#[test]
+fn query_test() {
+    let mut client = HttpClient::new();
+    iterate_request(
+        &mut client,
+        RequestBuilder::get(&format!("api.agify.io")).query(vec![("name", "isaac")]),
+        50,
+        None,
+    );
+}
