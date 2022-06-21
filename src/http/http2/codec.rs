@@ -1,6 +1,6 @@
 use crate::http::codec::Codec;
 use crate::http::error::SomeError;
-use crate::http::http2::headers::{flags::END_HEADERS, Headers};
+use crate::http::http2::headers::Headers;
 use crate::http::http2::request::Request;
 use crate::http::http2::settings::*;
 use crate::http::http2::stream::{State, Stream};
@@ -31,7 +31,7 @@ impl<'a> Codec for Http2Codec<'a> {
         let mut encoded = self.encode_header_frame(&request.raw_headers, request.data.is_some());
         if let Some(data) = request.data {
             let data_frame = DataFrame::parse_from_payload(
-                FrameHeader::new(DATA, END_STREAM, self.last_stream),
+                FrameHeader::new(FrameKind::Data, END_STREAM, self.last_stream),
                 &data,
             )?;
             encoded.extend(data_frame.encode());
@@ -53,30 +53,30 @@ impl<'a> Codec for Http2Codec<'a> {
             }
             self.client_window_size -= frame_header.length;
             match frame_header.kind {
-                HEADERS => {
+                FrameKind::Headers => {
                     let headers: HeadersFrame = self.expect_payload(conn, frame_header)?;
                     if headers.is_stream_end() {
                         stream.state = State::Closed;
                     }
                     stream.response_headers.extend(headers.payload.blocks);
                 }
-                DATA => {
+                FrameKind::Data => {
                     let data: DataFrame = self.expect_payload(conn, frame_header)?;
                     if data.is_stream_end() {
                         stream.state = State::Closed;
                     }
                     stream.response_data.extend(data.payload.blocks);
                 }
-                SETTING => self.update_settings(conn, frame_header)?,
-                WINDOW_UPDATE => self.handle_window_update(conn, frame_header)?,
-                RST_STREAM => self.handle_stream_reset(conn, frame_header)?,
-                GOAWAY => self.handle_go_away(conn, frame_header)?,
-                _ => {
-                    return Err(Error::connection(
-                        "unexpected frame",
-                        frame_header.kind.some_box(),
-                    ))
-                }
+                FrameKind::Setting => self.update_settings(conn, frame_header)?,
+                FrameKind::WindowUpdate => self.handle_window_update(conn, frame_header)?,
+                FrameKind::RstStream => self.handle_stream_reset(conn, frame_header)?,
+                FrameKind::GoAway => self.handle_go_away(conn, frame_header)?,
+                FrameKind::Priority => {}
+                FrameKind::PushPromise => {}
+                FrameKind::Ping => {}
+                FrameKind::Continuation => {}
+                FrameKind::Altsvc => {}
+                FrameKind::Origin => {}
             }
         }
 
@@ -123,12 +123,12 @@ impl<'a> Http2Codec<'a> {
     ) -> Vec<u8> {
         let encoded = self.compress_headers(headers);
         let flags = match has_data {
-            false => END_HEADERS | END_STREAM,
-            true => END_HEADERS,
+            false => headers::Flags::EndHeaders as u8 | END_STREAM,
+            true => headers::Flags::EndHeaders as u8,
         };
         let frame_header = FrameHeader {
             length: encoded.len() as u32,
-            kind: HEADERS,
+            kind: FrameKind::Headers,
             flags,
             stream_identifier: self.last_stream,
         };
@@ -317,13 +317,12 @@ pub struct StreamSettings {
 impl StreamSettings {
     fn update_setting(&mut self, setting: Setting) {
         match setting.identifier {
-            SETTINGS_HEADER_TABLE_SIZE => self.header_table_size = setting.value,
-            SETTINGS_ENABLE_PUSH => self.enable_push = setting.value != 0,
-            SETTINGS_INITIAL_WINDOW_SIZE => self.initial_window_size = setting.value,
-            SETTINGS_MAX_CONCURRENT_STREAMS => self.max_concurrent_streams = setting.value,
-            SETTINGS_MAX_FRAME_SIZE => self.max_frame_size = setting.value,
-            SETTINGS_MAX_HEADER_LIST_SIZE => self.max_header_list_size = setting.value,
-            _ => {}
+            Identifier::HeaderTableSize => self.header_table_size = setting.value,
+            Identifier::EnablePush => self.enable_push = setting.value != 0,
+            Identifier::InitialWindowSize => self.initial_window_size = setting.value,
+            Identifier::MaxConcurrentStreams => self.max_concurrent_streams = setting.value,
+            Identifier::MaxFrameSize => self.max_frame_size = setting.value,
+            Identifier::MaxHeaderListSize => self.max_header_list_size = setting.value,
         }
     }
 

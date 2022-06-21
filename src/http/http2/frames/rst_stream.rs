@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct RstStream {
-    pub error_code: u32,
+    pub error_code: ErrorCode,
 }
 
 impl FramePayload for RstStream {
@@ -10,7 +10,7 @@ impl FramePayload for RstStream {
         let bytes = <[u8; 4]>::try_from(bytes).map_err(|_| Error::server("invalid frame"))?;
 
         Ok(Self {
-            error_code: u32::from_be_bytes(bytes),
+            error_code: ErrorCode::from(bytes),
         })
     }
 

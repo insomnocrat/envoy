@@ -109,6 +109,7 @@ impl ProtoConn {
         }
         let encoded = self.codec.encode_request(request)?;
         self.inner.write_all(&encoded)?;
+        self.inner.flush()?;
 
         self.codec.decode_response(&mut self.inner)
     }

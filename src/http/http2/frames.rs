@@ -13,24 +13,115 @@ pub type GoAwayFrame = Frame<go_away::GoAway>;
 pub type RstStreamFrame = Frame<rst_stream::RstStream>;
 
 use crate::http::{Error, Result};
-use std::fmt::{Display, Formatter};
-
-pub const DATA: u8 = 0x00;
-pub const HEADERS: u8 = 0x01;
-pub const PRIORITY: u8 = 0x02;
-pub const RST_STREAM: u8 = 0x03;
-pub const SETTING: u8 = 0x04;
-pub const PUSH_PROMISE: u8 = 0x05;
-pub const PING: u8 = 0x06;
-pub const GOAWAY: u8 = 0x07;
-pub const WINDOW_UPDATE: u8 = 0x08;
-pub const CONTINUATION: u8 = 0x09;
-pub const ALTSVC: u8 = 0x0a;
-pub const ORIGIN: u8 = 0x0c;
+use std::fmt::{Debug, Display, Formatter};
 
 pub const END_STREAM: u8 = 0x1;
 pub const PADDED: u8 = 0x08;
 pub const RESERVED: u8 = 0x80;
+
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(u8)]
+pub enum FrameKind {
+    Data = 0x0,
+    Headers = 0x1,
+    Priority = 0x2,
+    RstStream = 0x3,
+    Setting = 0x4,
+    PushPromise = 0x5,
+    Ping = 0x6,
+    GoAway = 0x7,
+    WindowUpdate = 0x8,
+    Continuation = 0x9,
+    Altsvc = 0xa,
+    Origin = 0xc,
+}
+
+impl TryFrom<u8> for FrameKind {
+    type Error = Error;
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        let result = match value {
+            0x0 => Self::Data,
+            0x1 => Self::Headers,
+            0x2 => Self::Priority,
+            0x3 => Self::RstStream,
+            0x4 => Self::Setting,
+            0x5 => Self::PushPromise,
+            0x6 => Self::Ping,
+            0x7 => Self::GoAway,
+            0x8 => Self::WindowUpdate,
+            0x9 => Self::Continuation,
+            0xa => Self::Altsvc,
+            0xc => Self::Origin,
+            _ => return Err(Error::server("received invalid frame")),
+        };
+        Ok(result)
+    }
+}
+
+impl TryFrom<&[u8; 9]> for FrameKind {
+    type Error = Error;
+
+    fn try_from(value: &[u8; 9]) -> std::result::Result<Self, Self::Error> {
+        value[3]
+            .try_into()
+            .map_err(|_| Error::server("received invalid frame"))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(u32)]
+#[non_exhaustive]
+pub enum ErrorCode {
+    NoError = 0x0,
+    ProtocolError = 0x1,
+    InternalError = 0x2,
+    FlowControlError = 0x3,
+    SettingsTimeout = 0x4,
+    StreamClosed = 0x5,
+    FrameSizeError = 0x6,
+    RefusedStream = 0x7,
+    Cancel = 0x8,
+    CompressionError = 0x9,
+    ConnectError = 0xa,
+    EnhanceYourCalm = 0xb,
+    InadequateSecurity = 0xc,
+    Http11Required = 0xd,
+    Custom,
+}
+
+impl ErrorCode {
+    pub fn to_be_bytes(self) -> [u8; 4] {
+        (self as u32).to_be_bytes()
+    }
+}
+
+impl From<u32> for ErrorCode {
+    fn from(value: u32) -> Self {
+        match value {
+            0x0 => Self::NoError,
+            0x1 => Self::ProtocolError,
+            0x2 => Self::InternalError,
+            0x3 => Self::FlowControlError,
+            0x4 => Self::SettingsTimeout,
+            0x5 => Self::StreamClosed,
+            0x6 => Self::FrameSizeError,
+            0x7 => Self::RefusedStream,
+            0x8 => Self::Cancel,
+            0x9 => Self::CompressionError,
+            0xa => Self::ConnectError,
+            0xb => Self::EnhanceYourCalm,
+            0xc => Self::InadequateSecurity,
+            0xd => Self::Http11Required,
+            _ => Self::Custom,
+        }
+    }
+}
+
+impl From<[u8; 4]> for ErrorCode {
+    fn from(bytes: [u8; 4]) -> Self {
+        Self::from(u32::from_be_bytes(bytes))
+    }
+}
 
 pub(crate) const PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
@@ -82,7 +173,7 @@ impl<P: FramePayload> Frame<P> {
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct FrameHeader {
     pub length: u32,
-    pub kind: u8,
+    pub kind: FrameKind,
     pub flags: u8,
     pub stream_identifier: u32,
 }
@@ -90,19 +181,18 @@ pub struct FrameHeader {
 impl Display for FrameHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let kind = match self.kind {
-            DATA => "Data",
-            HEADERS => "Header",
-            SETTING => "Setting",
-            WINDOW_UPDATE => "Window Update",
-            GOAWAY => "Go Away",
-            RST_STREAM => "Reset Stream",
-            PUSH_PROMISE => "Push Promise",
-            CONTINUATION => "Continuation",
-            ALTSVC => "Altsvc",
-            ORIGIN => "Origin",
-            PING => "Ping",
-            PRIORITY => "Priority",
-            _ => "Unknown",
+            FrameKind::Data => "Data",
+            FrameKind::Headers => "Header",
+            FrameKind::Setting => "Setting",
+            FrameKind::WindowUpdate => "Window Update",
+            FrameKind::GoAway => "Go Away",
+            FrameKind::RstStream => "Reset Stream",
+            FrameKind::PushPromise => "Push Promise",
+            FrameKind::Continuation => "Continuation",
+            FrameKind::Altsvc => "Altsvc",
+            FrameKind::Origin => "Origin",
+            FrameKind::Ping => "Ping",
+            FrameKind::Priority => "Priority",
         };
         write!(
             f,
@@ -113,7 +203,7 @@ impl Display for FrameHeader {
 }
 
 impl FrameHeader {
-    pub fn new(kind: u8, flags: u8, stream_identifier: u32) -> Self {
+    pub fn new(kind: FrameKind, flags: u8, stream_identifier: u32) -> Self {
         Self {
             length: 0,
             kind,
@@ -129,7 +219,7 @@ impl FrameHeader {
             _ => &length,
         };
         bytes.extend(length);
-        bytes.push(self.kind);
+        bytes.push(self.kind as u8);
         bytes.push(self.flags);
         bytes.extend(self.stream_identifier.to_be_bytes());
 
@@ -141,7 +231,7 @@ impl From<&[u8; 9]> for FrameHeader {
     fn from(bytes: &[u8; 9]) -> Self {
         Self {
             length: u32::from_be_bytes([0x00, bytes[0], bytes[1], bytes[2]]),
-            kind: bytes[3],
+            kind: bytes[3].try_into().unwrap(),
             flags: bytes[4],
             stream_identifier: u32::from_be_bytes([bytes[5], bytes[6], bytes[7], bytes[8]]),
         }
@@ -154,8 +244,14 @@ impl TryFrom<&[u8]> for FrameHeader {
     fn try_from(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
         let bytes = <&[u8; 9]>::try_from(&bytes[0..9])
             .map_err(|_| Error::server("invalid frame header"))?;
+        let kind = bytes.try_into()?;
 
-        Ok(Self::from(bytes))
+        Ok(Self {
+            length: u32::from_be_bytes([0x00, bytes[0], bytes[1], bytes[2]]),
+            kind,
+            flags: bytes[4],
+            stream_identifier: u32::from_be_bytes([bytes[5], bytes[6], bytes[7], bytes[8]]),
+        })
     }
 }
 

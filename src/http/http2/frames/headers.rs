@@ -1,6 +1,5 @@
 use super::Result;
 use super::*;
-use flags::*;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Headers {
@@ -14,7 +13,7 @@ pub struct Headers {
 
 impl Frame<Headers> {
     pub fn is_end_headers(&self) -> bool {
-        self.header.flags & END_HEADERS != 0
+        self.header.flags & Flags::EndHeaders as u8 != 0
     }
 }
 
@@ -22,7 +21,7 @@ impl FramePayload for Headers {
     fn parse(bytes: &[u8], flags: u8) -> Result<Self> {
         let mut iter = bytes.into_iter();
         let (pad_length, is_exclusive, stream_dependency, weight) =
-            match flag_is_present(PADDED_OR_PRIORITY, flags) {
+            match flag_is_present(Flags::PaddedOrPriority as u8, flags) {
                 true => {
                     let pl = match flag_is_present(PADDED, flags) {
                         true => Some(
@@ -32,18 +31,18 @@ impl FramePayload for Headers {
                         ),
                         false => None,
                     };
-                    let (ie, sd, w) = match flag_is_present(flags::PRIORITY, flags) {
+                    let (ie, sd, w) = match flag_is_present(Flags::Priority as u8, flags) {
                         true => {
                             let mut s = <[u8; 4]>::try_from(
                                 iter.by_ref().take(4).map(|b| *b).collect::<Vec<u8>>(),
                             )
                             .map_err(|_| Error::server("malformed headers frame"))?;
-                            let e = flag_is_present(EXCLUSIVE_STREAM, s[0]);
+                            let e = flag_is_present(Flags::ExclusiveStream as u8, s[0]);
                             let w = iter
                                 .next()
                                 .ok_or_else(|| Error::server("malformed headers frame"))?;
                             let w = Some(*w);
-                            s[0] -= EXCLUSIVE_STREAM;
+                            s[0] -= Flags::ExclusiveStream as u8;
 
                             (Some(e), Some(u32::from_be_bytes(s)), w)
                         }
@@ -82,7 +81,7 @@ impl FramePayload for Headers {
         if let Some(dependency) = self.stream_dependency {
             let mut dependency = dependency.to_be_bytes();
             if let Some(true) = self.is_exclusive {
-                dependency[0] |= EXCLUSIVE_STREAM;
+                dependency[0] |= Flags::ExclusiveStream as u8;
             }
             bytes.extend(dependency);
         }
@@ -93,9 +92,10 @@ impl FramePayload for Headers {
     }
 }
 
-pub mod flags {
-    pub const END_HEADERS: u8 = 0x4;
-    pub const PRIORITY: u8 = 0x20;
-    pub const PADDED_OR_PRIORITY: u8 = super::PADDED | PRIORITY;
-    pub const EXCLUSIVE_STREAM: u8 = 0x80;
+#[repr(u8)]
+pub enum Flags {
+    EndHeaders = 0x4,
+    Priority = 0x20,
+    PaddedOrPriority = Flags::EndHeaders as u8 | Flags::Priority as u8,
+    ExclusiveStream = 0x80,
 }

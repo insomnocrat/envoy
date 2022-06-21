@@ -3,14 +3,43 @@ use crate::http::http2::*;
 use crate::http::{Error, Result};
 use std::fmt::{Display, Formatter};
 
-pub const SETTINGS_HEADER_TABLE_SIZE: u16 = 0x01;
-pub const SETTINGS_ENABLE_PUSH: u16 = 0x02;
-pub const SETTINGS_MAX_CONCURRENT_STREAMS: u16 = 0x03;
-pub const SETTINGS_INITIAL_WINDOW_SIZE: u16 = 0x04;
-pub const SETTINGS_MAX_FRAME_SIZE: u16 = 0x05;
-pub const SETTINGS_MAX_HEADER_LIST_SIZE: u16 = 0x06;
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(u16)]
+pub enum Identifier {
+    HeaderTableSize = 0x1,
+    EnablePush = 0x2,
+    MaxConcurrentStreams = 0x3,
+    InitialWindowSize = 0x4,
+    MaxFrameSize = 0x5,
+    MaxHeaderListSize = 0x6,
+}
 
-const KIND: u8 = SETTING;
+#[repr(u8)]
+pub enum Flags {
+    Ack = 0x1,
+}
+
+impl Identifier {
+    pub fn to_be_bytes(self) -> [u8; 2] {
+        (self as u16).to_be_bytes()
+    }
+}
+
+impl TryFrom<u16> for Identifier {
+    type Error = Error;
+
+    fn try_from(value: u16) -> std::result::Result<Self, Self::Error> {
+        Ok(match value {
+            0x1 => Self::HeaderTableSize,
+            0x2 => Self::EnablePush,
+            0x3 => Self::MaxConcurrentStreams,
+            0x4 => Self::InitialWindowSize,
+            0x5 => Self::MaxFrameSize,
+            0x6 => Self::MaxHeaderListSize,
+            _ => return Err(Error::server("received invalid settings frame")),
+        })
+    }
+}
 
 pub(crate) type Settings = Vec<Setting>;
 
@@ -19,8 +48,8 @@ impl Frame<Settings> {
         Self::new(
             FrameHeader {
                 length: 0,
-                kind: KIND,
-                flags: 0,
+                kind: FrameKind::Setting,
+                flags: 0x0,
                 stream_identifier: 0,
             },
             Settings::new(),
@@ -31,8 +60,8 @@ impl Frame<Settings> {
         Self::new(
             FrameHeader {
                 length: 0,
-                kind: KIND,
-                flags: 0x1,
+                kind: FrameKind::Setting,
+                flags: Flags::Ack as u8,
                 stream_identifier: 0,
             },
             Settings::new(),
@@ -43,27 +72,28 @@ impl Frame<Settings> {
 
 #[derive(Clone, Debug)]
 pub struct Setting {
-    pub identifier: u16,
+    pub identifier: Identifier,
     pub value: u32,
 }
 
 impl Display for Setting {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.identifier {
-            SETTINGS_HEADER_TABLE_SIZE => write!(f, "Header Table Size: {}", &self.value),
-            SETTINGS_ENABLE_PUSH => write!(f, "EnablePush: {}", &self.value),
-            SETTINGS_INITIAL_WINDOW_SIZE => write!(f, "Initial Window Size: {}", &self.value),
-            SETTINGS_MAX_CONCURRENT_STREAMS => write!(f, "Max Concurrent Streams: {}", &self.value),
-            SETTINGS_MAX_FRAME_SIZE => write!(f, "Max Frame Size: {}", &self.value),
-            SETTINGS_MAX_HEADER_LIST_SIZE => write!(f, "Max Header List Size: {}", &self.value),
-            _ => write!(f, "Unknown Setting: {}", &self.value),
+            Identifier::HeaderTableSize => write!(f, "Header Table Size: {}", &self.value),
+            Identifier::EnablePush => write!(f, "EnablePush: {}", &self.value),
+            Identifier::InitialWindowSize => write!(f, "Initial Window Size: {}", &self.value),
+            Identifier::MaxConcurrentStreams => {
+                write!(f, "Max Concurrent Streams: {}", &self.value)
+            }
+            Identifier::MaxFrameSize => write!(f, "Max Frame Size: {}", &self.value),
+            Identifier::MaxHeaderListSize => write!(f, "Max Header List Size: {}", &self.value),
         }
     }
 }
 
 impl Setting {
     fn encode(self) -> Vec<u8> {
-        let mut encoded = self.identifier.to_be_bytes().to_vec();
+        let mut encoded = (self.identifier as u16).to_be_bytes().to_vec();
         encoded.extend(self.value.to_be_bytes());
 
         encoded
@@ -90,19 +120,26 @@ impl FramePayload for Settings {
     }
 }
 
-impl From<[u8; 6]> for Setting {
-    fn from(bytes: [u8; 6]) -> Self {
-        Self {
-            identifier: u16::from_be_bytes([bytes[0], bytes[1]]),
+impl TryFrom<[u8; 6]> for Setting {
+    type Error = Error;
+
+    fn try_from(bytes: [u8; 6]) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            identifier: u16::from_be_bytes([bytes[0], bytes[1]]).try_into()?,
             value: u32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]),
-        }
+        })
     }
 }
 
-impl From<(u16, u32)> for Setting {
-    fn from(bytes: (u16, u32)) -> Self {
+impl TryFrom<(u16, u32)> for Setting {
+    type Error = Error;
+
+    fn try_from(bytes: (u16, u32)) -> std::result::Result<Self, Self::Error> {
         let (identifier, value) = bytes;
-        Self { identifier, value }
+        Ok(Self {
+            identifier: identifier.try_into()?,
+            value,
+        })
     }
 }
 
@@ -110,43 +147,42 @@ impl TryFrom<&[u8]> for Setting {
     type Error = Error;
 
     fn try_from(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
-        let bytes =
-            <[u8; 6]>::try_from(bytes).map_err(|_| Error::server("received malformed setting"))?;
-
-        Ok(Self::from(bytes))
+        <[u8; 6]>::try_from(bytes)
+            .map_err(|_| Error::server("received malformed setting frame"))?
+            .try_into()
     }
 }
 
 impl From<&StreamSettings> for Settings {
     fn from(s: &StreamSettings) -> Self {
         let header_table_size = Setting {
-            identifier: SETTINGS_HEADER_TABLE_SIZE,
+            identifier: Identifier::HeaderTableSize,
             value: s.header_table_size,
         };
         let enable_push = match s.enable_push {
             true => Setting {
-                identifier: SETTINGS_ENABLE_PUSH,
+                identifier: Identifier::EnablePush,
                 value: 1,
             },
             false => Setting {
-                identifier: SETTINGS_ENABLE_PUSH,
+                identifier: Identifier::EnablePush,
                 value: 0,
             },
         };
         let max_concurrent_streams = Setting {
-            identifier: SETTINGS_MAX_CONCURRENT_STREAMS,
+            identifier: Identifier::MaxConcurrentStreams,
             value: s.max_concurrent_streams,
         };
         let initial_window_size = Setting {
-            identifier: SETTINGS_INITIAL_WINDOW_SIZE,
+            identifier: Identifier::InitialWindowSize,
             value: s.initial_window_size,
         };
         let max_frame_size = Setting {
-            identifier: SETTINGS_MAX_FRAME_SIZE,
+            identifier: Identifier::MaxFrameSize,
             value: s.max_frame_size,
         };
         let max_header_list = Setting {
-            identifier: SETTINGS_MAX_HEADER_LIST_SIZE,
+            identifier: Identifier::MaxHeaderListSize,
             value: s.max_header_list_size,
         };
 

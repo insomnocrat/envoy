@@ -1,5 +1,4 @@
 use super::*;
-const KIND: u8 = WINDOW_UPDATE;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub struct WindowUpdate {
@@ -20,7 +19,7 @@ impl WindowUpdate {
 impl From<WindowUpdate> for Frame<WindowUpdate> {
     fn from(w: WindowUpdate) -> Self {
         Self {
-            header: FrameHeader::new(KIND, 0, 0),
+            header: FrameHeader::new(FrameKind::WindowUpdate, 0, 0),
             payload: w,
         }
     }
