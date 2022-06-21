@@ -63,13 +63,11 @@ impl<'a> Request<'a> {
         }
     }
 
-    pub fn query<T: AsRef<[u8]>>(self, params: &[(T, T)]) -> Self {
-        let query = params
-            .into_iter()
-            .map(|(k, v)| (k.as_ref(), v.as_ref()))
-            .collect();
+    pub fn query<T: serde::Serialize + Sized>(mut self, params: T) -> Self {
+        let query = serde_urlencoded::to_string(params).unwrap();
+        self.inner.set_query(query.into_bytes());
         Self {
-            inner: self.inner.query(query),
+            inner: self.inner,
             client_ref: self.client_ref,
         }
     }

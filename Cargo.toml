@@ -16,6 +16,7 @@ webpki-roots = "*"
 serde = { version = "*", features = ["derive"], optional = true }
 chrono = "*"
 serde_json = {version = "*", optional = true}
+serde_urlencoded = {version = "*", optional = true}
 base64 = "*"
 convert_case = {version = "*", optional = true}
 hpack = {version = "*", optional = true}
@@ -24,7 +25,7 @@ rand = {version = "*", optional = true}
 
 [features]
 default = ["rest", "multipart"]
-rest = ["serde_json", "serde"]
+rest = ["serde_json", "serde", "serde_urlencoded"]
 multihost = []
 http2 = ["hpack"]
 interpreter = ["rest", "convert_case"]

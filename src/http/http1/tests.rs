@@ -38,8 +38,7 @@ fn query_test() {
     let mut client = HttpClient::new();
     iterate_request(
         &mut client,
-        RequestBuilder::get(&format!("api.agify.io"))
-            .query(vec![("name".as_bytes(), "isaac".as_bytes())]),
+        RequestBuilder::get(&format!("api.agify.io")).query(vec![("name", "isaac")]),
         50,
         None,
     );

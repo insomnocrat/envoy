@@ -12,7 +12,7 @@ impl Request {
         method: Method,
         authority: &[u8],
         resource: &[u8],
-        query: Vec<(Vec<u8>, Vec<u8>)>,
+        query: Vec<u8>,
         custom_capacity: usize,
     ) -> Vec<(Vec<u8>, Vec<u8>)> {
         let mut headers = Vec::with_capacity(custom_capacity + 5);
@@ -28,12 +28,8 @@ impl Request {
             false => resource.to_vec(),
         };
         if !query.is_empty() {
-            resource.push(0x3f);
-            for (key, value) in query.into_iter() {
-                resource.extend(key);
-                resource.push(0x3D);
-                resource.extend(value);
-            }
+            resource.push(0x3F);
+            resource.extend(query);
         }
         headers.extend(vec![
             method,

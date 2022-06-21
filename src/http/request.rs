@@ -8,7 +8,7 @@ pub struct RequestBuilder {
     pub method: Method,
     pub url: Url,
     pub body: Option<Vec<u8>>,
-    pub query: Vec<(Vec<u8>, Vec<u8>)>,
+    pub query: Vec<u8>,
     pub headers: HashMap<Vec<u8>, Vec<u8>>,
 }
 
@@ -63,15 +63,22 @@ impl RequestBuilder {
             headers: Default::default(),
         }
     }
-    pub fn extend_query(&mut self, query: Vec<(&[u8], &[u8])>) {
-        let query = query.iter().map(|(k, v)| (k.to_vec(), v.to_vec()));
-        self.query.extend(query);
+    pub fn extend_query<T: AsRef<[u8]>>(&mut self, query: Vec<(T, T)>) {
+        for (key, value) in query.into_iter() {
+            self.query.extend_from_slice(key.as_ref());
+            self.query.push(0x3D);
+            self.query.extend_from_slice(value.as_ref());
+        }
     }
 
-    pub fn query(mut self, query: Vec<(&[u8], &[u8])>) -> Self {
+    pub fn query<T: AsRef<[u8]>>(mut self, query: Vec<(T, T)>) -> Self {
         self.extend_query(query);
 
         self
+    }
+
+    pub fn set_query(&mut self, query: Vec<u8>) {
+        self.query.extend(query)
     }
 
     pub fn extend_headers(&mut self, headers: Vec<(&[u8], &[u8])>) {

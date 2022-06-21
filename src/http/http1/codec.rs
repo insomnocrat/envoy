@@ -34,12 +34,8 @@ impl Codec for Http1Codec {
             message.extend(request.url.resource);
         }
         if !request.query.is_empty() {
-            message.push(0x3F);
-            for (key, value) in request.query.into_iter() {
-                message.extend(key);
-                message.push(0x3D);
-                message.extend(value);
-            }
+            message.push(0x3f);
+            message.extend(request.query);
         };
         message.extend(b" HTTP/1.1\r\n");
         message.extend_from_slice(HOST);

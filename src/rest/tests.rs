@@ -113,3 +113,39 @@ fn post_and_delete() {
     }
     print_results(results);
 }
+
+#[test]
+pub fn query_test() {
+    let mut results = Vec::with_capacity(50);
+    let mut client = crate::RestClient::new("api.agify.io");
+    for _ in 0..51 {
+        let start = time::Instant::now();
+        let result = client.get("/").query(&[("name", "isaac")]).send().unwrap();
+        let end = time::Instant::now().duration_since(start);
+        result.assert();
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[derive(serde::Serialize)]
+struct TestQuery {
+    name: String,
+}
+
+#[test]
+pub fn query_serialize_test() {
+    let mut results = Vec::with_capacity(50);
+    let mut client = crate::RestClient::new("api.agify.io");
+    let query = TestQuery {
+        name: "Isaac".to_string(),
+    };
+    for _ in 0..51 {
+        let start = time::Instant::now();
+        let result = client.get("/").query(&query).send().unwrap();
+        let end = time::Instant::now().duration_since(start);
+        result.assert();
+        results.push(end);
+    }
+    print_results(results);
+}
