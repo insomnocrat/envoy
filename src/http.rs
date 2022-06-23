@@ -24,16 +24,17 @@ type Result<T> = std::result::Result<T, Error>;
 type Success = Result<()>;
 pub type HttpClient = client::Client;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
     GET,
     POST,
     PUT,
     PATCH,
     DELETE,
+    CONNECT,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
 pub enum Protocol {
     HTTP1,
     #[cfg(feature = "http2")]

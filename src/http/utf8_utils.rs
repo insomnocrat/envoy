@@ -12,6 +12,9 @@ pub const CRLF: &[u8; 2] = &[CR, LF];
 pub const COLON: u8 = 0x3a;
 pub const SP: u8 = 0x20;
 pub const COLSP: &[u8; 2] = &[COLON, SP];
+pub const SLASH: u8 = 0x2f;
+pub const QMARK: u8 = 0x3f;
+pub const EQUALS: u8 = 0x3d;
 
 pub const HEX_DIGITS: &[u8; 22] = &[
     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46,
@@ -200,6 +203,9 @@ impl UTF8Parser {
     pub fn read_to_lf(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
         self.read_to_char(&LF, buf)
     }
+    pub fn read_to_null(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        self.read_to_char(&NULL, buf)
+    }
     pub fn skip_chars(&mut self, chars: &[u8]) {
         while self.iter.next_if(|c| chars.contains(c)).is_some() {}
     }
@@ -238,7 +244,7 @@ impl Read for UTF8Parser {
         self.load_buf(buf, &bytes)
     }
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
-        self.read_to_crlf(buf)
+        self.read_to_null(buf)
     }
     fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
         let mut bytes = Vec::new();

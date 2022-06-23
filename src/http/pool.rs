@@ -2,6 +2,7 @@ use super::{pooled_conn::PooledConn, Error, Response, Result, Success};
 use crate::http::error::{ErrorKind, SomeError};
 use crate::http::request::RequestBuilder;
 use crate::http::utf8_utils::UTF8Utils;
+use crate::http::Protocol;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
@@ -105,7 +106,7 @@ impl Pool {
         }
     }
     pub fn spawn_connection(addr: &str) -> Result<PooledConn> {
-        PooledConn::new(addr)
+        PooledConn::new(addr, Protocol::default())
     }
 
     pub fn host(&mut self, addr: &str) -> Result<&mut PooledConn> {
@@ -127,7 +128,9 @@ impl Pool {
     }
 
     pub fn clear_connections(&mut self) {
-        self.map.iter_mut().for_each(|(_, c)| c.join_thread());
+        self.map.iter_mut().for_each(|(_, c)| {
+            let _ = c.join_thread();
+        });
         self.map.clear();
     }
 }

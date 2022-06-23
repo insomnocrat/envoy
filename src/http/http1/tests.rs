@@ -1,3 +1,5 @@
+use crate::http::request::headers::values::{ALL, KEEP_ALIVE};
+use crate::http::request::headers::{ACCEPT, CONNECTION};
 use crate::http::request::RequestBuilder;
 use crate::http::test_utils::*;
 use crate::http::Response;
@@ -38,8 +40,10 @@ fn query_test() {
     let mut client = HttpClient::new();
     iterate_request(
         &mut client,
-        RequestBuilder::get(&format!("api.agify.io")).query(vec![("name", "isaac")]),
-        50,
+        RequestBuilder::get(&format!("api.nationalize.io"))
+            .query(vec![("name", "isaac")])
+            .headers(vec![(ACCEPT, ALL), (CONNECTION, KEEP_ALIVE)]),
+        0,
         None,
     );
 }

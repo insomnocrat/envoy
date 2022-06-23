@@ -94,7 +94,7 @@ fn post_and_delete() {
     let mut user = User::default();
     user.first_name = "TestMan".to_string();
     user.last_name = "Testy".to_string();
-    user.email = "random_email@ihatecomingupwithnewemails.com".to_string();
+    user.email = "random_email@ihatecomingupwithnewemails2.com".to_string();
     user.date_of_birth = "1/1/1900".to_string();
     for _ in 0..11 {
         let start = time::Instant::now();
@@ -170,6 +170,18 @@ pub fn opt_query_serialize_test2() {
     for _ in 0..11 {
         let start = time::Instant::now();
         client.get("/").opt_query(query.clone()).send().unwrap_err();
+        let end = time::Instant::now().duration_since(start);
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[test]
+fn pre_connect() {
+    let mut results = Vec::with_capacity(10);
+    for _ in 0..11 {
+        let start = time::Instant::now();
+        dummy_api_client();
         let end = time::Instant::now().duration_since(start);
         results.push(end);
     }

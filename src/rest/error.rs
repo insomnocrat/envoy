@@ -34,7 +34,10 @@ impl From<HttpError> for Error {
     fn from(e: HttpError) -> Self {
         let message = e.message.to_string();
         let kind = match &e.kind {
-            HttpErrorKind::Client | HttpErrorKind::User | HttpErrorKind::Thread(_) => Kind::Client,
+            HttpErrorKind::Client
+            | HttpErrorKind::User
+            | HttpErrorKind::Thread(_)
+            | HttpErrorKind::Protocol => Kind::Protocol,
             HttpErrorKind::Server => Kind::Server,
             HttpErrorKind::Connection(_) => Kind::Connection,
         };
@@ -50,6 +53,7 @@ pub enum Kind {
     Connection,
     Server,
     Client,
+    Protocol,
     #[cfg(feature = "interpreter")]
     Interpreter,
 }

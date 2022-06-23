@@ -1,5 +1,5 @@
 use super::{Method, Protocol};
-use crate::http::utf8_utils::UTF8Utils;
+use crate::http::utf8_utils::{UTF8Utils, EQUALS, QMARK, SLASH};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -8,7 +8,6 @@ pub struct RequestBuilder {
     pub method: Method,
     pub url: Url,
     pub body: Option<Vec<u8>>,
-    pub query: Vec<u8>,
     pub headers: HashMap<Vec<u8>, Vec<u8>>,
 }
 
@@ -19,7 +18,6 @@ impl RequestBuilder {
             method: Method::GET,
             url: url.as_bytes().into(),
             body: None,
-            query: Default::default(),
             headers: Default::default(),
         }
     }
@@ -29,7 +27,6 @@ impl RequestBuilder {
             method: Method::POST,
             url: url.as_bytes().into(),
             body: None,
-            query: Default::default(),
             headers: Default::default(),
         }
     }
@@ -39,7 +36,6 @@ impl RequestBuilder {
             method: Method::PUT,
             url: url.as_bytes().into(),
             body: None,
-            query: Default::default(),
             headers: Default::default(),
         }
     }
@@ -49,7 +45,6 @@ impl RequestBuilder {
             method: Method::PATCH,
             url: url.as_bytes().into(),
             body: None,
-            query: Default::default(),
             headers: Default::default(),
         }
     }
@@ -59,15 +54,23 @@ impl RequestBuilder {
             method: Method::DELETE,
             url: url.as_bytes().into(),
             body: None,
-            query: Default::default(),
+            headers: Default::default(),
+        }
+    }
+    pub fn connect(url: &str) -> Self {
+        Self {
+            protocol: Protocol::default(),
+            method: Method::CONNECT,
+            url: url.as_bytes().into(),
+            body: None,
             headers: Default::default(),
         }
     }
     pub fn extend_query<T: AsRef<[u8]>>(&mut self, query: Vec<(T, T)>) {
         for (key, value) in query.into_iter() {
-            self.query.extend_from_slice(key.as_ref());
-            self.query.push(0x3D);
-            self.query.extend_from_slice(value.as_ref());
+            self.url.query.extend_from_slice(key.as_ref());
+            self.url.query.push(EQUALS);
+            self.url.query.extend_from_slice(value.as_ref());
         }
     }
 
@@ -78,7 +81,7 @@ impl RequestBuilder {
     }
 
     pub fn set_query(&mut self, query: Vec<u8>) {
-        self.query.extend(query)
+        self.url.query = query;
     }
 
     pub fn extend_headers(&mut self, headers: Vec<(&[u8], &[u8])>) {
@@ -92,13 +95,13 @@ impl RequestBuilder {
         self
     }
 
-    pub fn extend_header(&mut self, header: (&[u8], &[u8])) {
+    pub fn insert_header(&mut self, header: (&[u8], &[u8])) {
         let (key, value) = header;
-        self.headers.insert(key.to_lower(), value.to_vec());
+        self.headers.insert(key.to_vec(), value.to_vec());
     }
 
     pub fn header(mut self, header: (&[u8], &[u8])) -> Self {
-        self.extend_header(header);
+        self.insert_header(header);
 
         self
     }
@@ -113,7 +116,17 @@ impl RequestBuilder {
             method: self.method,
             url: self.url,
             body: Some(body.to_vec()),
-            query: self.query,
+            headers: self.headers,
+        }
+    }
+
+    #[cfg(feature = "http2")]
+    pub fn protocol(self, protocol: Protocol) -> Self {
+        Self {
+            protocol,
+            method: self.method,
+            url: self.url,
+            body: self.body,
             headers: self.headers,
         }
     }
@@ -121,12 +134,12 @@ impl RequestBuilder {
 
 const SCHEME: &[u8] = b"https://";
 const AUTHORITY: &[u8] = b"www.";
-const SLASH: u8 = 0x2f;
 
 #[derive(Clone, Debug)]
 pub struct Url {
     pub host: Vec<u8>,
     pub resource: Vec<u8>,
+    pub query: Vec<u8>,
 }
 
 impl Url {
@@ -143,15 +156,23 @@ impl From<&[u8]> for Url {
         if value.starts_with(AUTHORITY) {
             value = &value[3..];
         }
-        let mut host = vec![];
-        let mut resource = vec![];
+        let mut host = Vec::with_capacity(2048);
+        let mut resource = Vec::new();
+        let mut query = Vec::new();
         let mut value = value.iter().peekable();
         while let Some(byte) = value.next_if(|b| **b != SLASH) {
             host.push(*byte);
         }
-        resource.extend(value);
+        while let Some(byte) = value.next_if(|b| **b != QMARK) {
+            resource.push(*byte);
+        }
+        query.extend(value);
 
-        Self { host, resource }
+        Self {
+            host,
+            resource,
+            query,
+        }
     }
 }
 
@@ -175,5 +196,6 @@ pub mod headers {
         pub const TEXT_HTML: &[u8] = b"text/html";
         pub const TEXT_PLAIN: &[u8] = b"text/plain";
         pub const EN_US: &[u8] = b"en_US";
+        pub const KEEP_ALIVE: &[u8] = b"keep-alive";
     }
 }

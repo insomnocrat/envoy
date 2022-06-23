@@ -66,7 +66,7 @@ impl ConfigBuilder {
             .inner
             .connect(&format!("{}:443", client.config.base_url))
             .map_err(|e| Error::from(e))?;
-
+        
         Ok(client)
     }
     pub fn backoff(self, proc: BackOffProcedure) -> Self {

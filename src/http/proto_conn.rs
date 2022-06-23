@@ -4,7 +4,7 @@ use crate::http::http1::codec::Http1Codec;
 #[cfg(feature = "http2")]
 use crate::http::http2::codec::Http2Codec;
 use crate::http::request::RequestBuilder;
-use crate::http::Response;
+use crate::http::{Protocol, Response, Success};
 use rustls::client::InvalidDnsNameError;
 use rustls::ClientConnection as TlsClient;
 use rustls::StreamOwned as TlsStream;
@@ -16,53 +16,42 @@ pub(crate) type Inner = TlsStream<TlsClient, TcpStream>;
 
 #[cfg(feature = "http2")]
 pub const H2: &[u8] = b"h2";
-#[cfg(feature = "http2")]
 pub const H1: &[u8] = b"http/1.1";
 pub const ALPN: &[&[u8]] = &[
     #[cfg(feature = "http2")]
     H2,
-    #[cfg(feature = "http2")]
     H1,
 ];
 
 pub struct ProtoConn {
     pub(crate) inner: Inner,
     pub(crate) codec: Box<dyn Codec>,
+    pub(crate) authority: String,
 }
 
 impl ProtoConn {
-    pub(crate) fn connect(authority: &str) -> Result<Self> {
+    pub fn new(authority: &str, protocol: Protocol) -> Result<Self> {
         let stream = TcpStream::connect(authority)?;
         let tls_client = Self::config_tls(
             authority.trim_end_matches(|c: char| c == ':' || c.is_numeric()),
             ALPN,
         )?;
-        let inner_stream: Inner;
-        let codec: Box<dyn Codec>;
-        #[cfg(feature = "http2")]
-        {
-            let mut stream = TlsStream::new(tls_client, stream);
-            let mut c = Box::new(Http2Codec::new());
-            match c.prelude(&mut stream) {
-                Ok(_) => codec = c,
-                Err(_) => codec = Box::new(Http1Codec::new()),
-            }
-            inner_stream = stream;
-        }
-        #[cfg(not(feature = "http2"))]
-        {
-            codec = Box::new(Http1Codec::new());
-            inner_stream = TlsStream::new(tls_client, stream);
-        }
+        let mut conn = match protocol {
+            Protocol::HTTP1 => Self {
+                inner: TlsStream::new(tls_client, stream),
+                codec: Box::new(Http1Codec::new()),
+                authority: authority.to_string(),
+            },
+            #[cfg(feature = "http2")]
+            Protocol::HTTP2 => Self {
+                inner: TlsStream::new(tls_client, stream),
+                codec: Box::new(Http2Codec::new()),
+                authority: authority.to_string(),
+            },
+        };
+        conn.codec.prelude(&mut conn.inner)?;
 
-        Ok(Self::new(inner_stream, codec))
-    }
-
-    fn new(stream: Inner, codec: Box<dyn Codec>) -> Self {
-        Self {
-            inner: stream,
-            codec,
-        }
+        Ok(conn)
     }
 
     fn config_tls(host: &str, protocols: &[&[u8]]) -> Result<TlsClient> {
@@ -92,17 +81,23 @@ impl ProtoConn {
         .map_err(|e| Error::connection("could not connect to server", e.some_box()))
     }
 
+    #[cfg(feature = "http2")]
+    pub fn downgrade_protocol(&mut self) -> Success {
+        *self = Self::new(&self.authority, Protocol::HTTP1)?;
+
+        Ok(())
+    }
+
+    pub fn reset(&mut self) -> Success {
+        *self = Self::new(&self.authority, self.codec.kind())?;
+
+        Ok(())
+    }
+
     pub fn send_request(&mut self, request: RequestBuilder) -> Result<Response> {
-        #[cfg(feature = "http2")]
-        let mut request = request;
-        #[cfg(feature = "http2")]
-        if request.protocol != self.codec.kind() {
-            request.protocol = self.codec.kind();
-        }
         let encoded = self.codec.encode_request(request)?;
         self.inner.write_all(&encoded)?;
         self.inner.flush()?;
-
         self.codec.decode_response(&mut self.inner)
     }
 }

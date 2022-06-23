@@ -35,6 +35,10 @@ impl Error {
     pub fn thread(message: &str, source: Option<Box<dyn Any + Send>>) -> Self {
         Self::new(message, ErrorKind::Thread(source))
     }
+
+    pub fn protocol(message: &str) -> Self {
+        Self::new(message, ErrorKind::Protocol)
+    }
 }
 
 impl Display for Error {
@@ -52,6 +56,7 @@ pub enum ErrorKind {
     Client,
     Server,
     Connection(Option<Box<dyn Any + Send>>),
+    Protocol,
 }
 
 pub trait SomeError {

@@ -1,4 +1,5 @@
 use crate::http::request::RequestBuilder;
+use crate::http::utf8_utils::UTF8Utils;
 use crate::http::Method;
 
 #[derive(Debug, Clone)]
@@ -22,6 +23,7 @@ impl Request {
             Method::PUT => to_owned_header(headers::PUT),
             Method::PATCH => to_owned_header(headers::PATCH),
             Method::DELETE => to_owned_header(headers::DELETE),
+            Method::CONNECT => to_owned_header(headers::CONNECT),
         };
         let mut resource = match resource.is_empty() {
             true => b"/".to_vec(),
@@ -48,10 +50,10 @@ impl From<RequestBuilder> for Request {
             builder.method,
             &builder.url.host,
             &builder.url.resource,
-            builder.query,
+            builder.url.query,
             builder.headers.len(),
         );
-        headers.extend(builder.headers.into_iter());
+        headers.extend(builder.headers.into_iter().map(|(k, v)| (k.to_lower(), v)));
 
         Self {
             raw_headers: headers,
@@ -67,6 +69,7 @@ pub mod headers {
     pub const PUT: (&[u8], &[u8]) = (METHOD, b"PUT");
     pub const PATCH: (&[u8], &[u8]) = (METHOD, b"PATCH");
     pub const DELETE: (&[u8], &[u8]) = (METHOD, b"DELETE");
+    pub const CONNECT: (&[u8], &[u8]) = (METHOD, b"CONNECT");
     pub const AUTHORITY: &[u8] = b":authority";
     pub const PATH: &[u8] = b":path";
     pub const SCHEME: &[u8] = b":scheme";

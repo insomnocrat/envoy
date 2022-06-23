@@ -31,17 +31,18 @@ pub(crate) fn gen_test_request_2(res: &str) -> RequestBuilder {
 pub(crate) fn iterate_request(
     client: &mut HttpClient,
     request: RequestBuilder,
-    amount: usize,
+    repeat: usize,
     evaluation: Option<Box<dyn Fn(Response) -> bool>>,
 ) {
+    client.connect(&request.url.authority()).unwrap();
     let evaluation = match evaluation {
         Some(e) => e,
         None => {
-            Box::new(|response: Response| response.status_code >= 200 && response.status_code < 300)
+            Box::new(|response: Response| response.status_code >= 200 && response.status_code < 302)
         }
     };
-    let mut results = Vec::with_capacity(amount);
-    for _ in 0..amount + 1 {
+    let mut results = Vec::with_capacity(repeat);
+    for _ in 0..repeat + 1 {
         let start = std::time::Instant::now();
         let response = client.execute(request.clone()).unwrap();
         let end = std::time::Instant::now().duration_since(start);

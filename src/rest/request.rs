@@ -112,7 +112,7 @@ impl<'a> Request<'a> {
     }
 
     pub fn extend_header(&mut self, key: &[u8], value: &[u8]) {
-        self.inner.extend_header((key, &value));
+        self.inner.insert_header((key, &value));
     }
     pub fn extend_headers(&mut self, headers: Vec<(&[u8], &[u8])>) {
         self.inner.extend_headers(headers);
@@ -148,7 +148,7 @@ impl<'a> Request<'a> {
         value.extend(
             format!("oauth_consumer_key=\"{}\", oauth_token=\"{}\"", key, token).as_bytes(),
         );
-        request.extend_header((AUTHORIZATION, &value));
+        request.insert_header((AUTHORIZATION, &value));
     }
 
     fn set_basic_auth(request: &mut InnerRequest, username: &str, password: Option<&str>) {
@@ -156,13 +156,13 @@ impl<'a> Request<'a> {
             username.as_bytes(),
             password.map(|p| p.as_bytes()).unwrap_or_default(),
         );
-        request.extend_header((&header, &value))
+        request.insert_header((&header, &value))
     }
 
     fn set_bearer_auth(request: &mut InnerRequest, token: &str) {
         let mut value = BEARER.to_vec();
         value.extend(encode(token).as_bytes());
-        request.extend_header((AUTHORIZATION, &value));
+        request.insert_header((AUTHORIZATION, &value));
     }
 
     fn set_auth(&mut self) -> Result<Success> {
@@ -297,12 +297,12 @@ impl<'a> Request<'a> {
     }
 
     pub fn accept_all(mut self) -> Self {
-        self.inner.extend_header((ACCEPT, ALL));
+        self.inner.insert_header((ACCEPT, ALL));
 
         self
     }
     pub fn accept_json(mut self) -> Self {
-        self.inner.extend_header((ACCEPT, JSON));
+        self.inner.insert_header((ACCEPT, JSON));
 
         self
     }
@@ -312,7 +312,7 @@ impl<'a> Request<'a> {
             username.as_bytes(),
             password.map(|p| p.as_bytes()).unwrap_or_default(),
         );
-        self.inner.extend_header((&header, &value));
+        self.inner.insert_header((&header, &value));
 
         self
     }

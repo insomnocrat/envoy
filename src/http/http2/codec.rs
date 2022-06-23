@@ -91,13 +91,14 @@ impl<'a> Codec for Http2Codec<'a> {
         let mut handshake = PREFACE.to_vec();
         handshake.extend(SettingsFrame::empty());
         conn.write_all(&handshake)?;
+        conn.flush()?;
         match conn.conn.alpn_protocol() {
             Some(protocol) => {
                 if *protocol != *H2 {
-                    return Err(Error::server("http2 protocol rejected"));
+                    return Err(Error::protocol("http2 protocol rejected"));
                 }
             }
-            None => return Err(Error::server("alpn protocol not set")),
+            None => return Err(Error::protocol("alpn protocol not set")),
         }
         let frame: SettingsFrame = self.expect_frame(conn)?;
         self.settings.update(frame.payload);
@@ -217,6 +218,7 @@ impl<'a> Http2Codec<'a> {
 
     pub fn ack_settings(stream: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
         stream.write_all(&SettingsFrame::ack())?;
+        stream.flush()?;
 
         Ok(())
     }
@@ -252,6 +254,7 @@ impl<'a> Http2Codec<'a> {
             .to_frame()
             .encode();
         conn.write_all(&frame)?;
+        conn.flush()?;
 
         Ok(())
     }

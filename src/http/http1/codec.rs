@@ -1,6 +1,6 @@
 use crate::http::codec::Codec;
 use crate::http::request::RequestBuilder;
-use crate::http::utf8_utils::{UTF8Parser, UTF8Utils, COLSP, CRLF};
+use crate::http::utf8_utils::{UTF8Parser, UTF8Utils, COLSP, CRLF, QMARK, SLASH};
 use crate::http::Protocol::HTTP1;
 use crate::http::{Error, Method, Protocol, Response, Result, Success};
 use crate::rest::request::{CONTENT_LENGTH, HOST};
@@ -27,15 +27,16 @@ impl Codec for Http1Codec {
             Method::PUT => message.extend(b"PUT "),
             Method::PATCH => message.extend(b"PATCH "),
             Method::DELETE => message.extend(b"DELETE "),
+            Method::CONNECT => message.extend(b"CONNECT "),
         }
         if request.url.resource.is_empty() {
-            message.push(0x2f);
+            message.push(SLASH);
         } else {
             message.extend(request.url.resource);
         }
-        if !request.query.is_empty() {
-            message.push(0x3f);
-            message.extend(request.query);
+        if !request.url.query.is_empty() {
+            message.push(QMARK);
+            message.extend(request.url.query);
         };
         message.extend(b" HTTP/1.1\r\n");
         message.extend_from_slice(HOST);
@@ -99,7 +100,9 @@ impl Codec for Http1Codec {
         vec![0; 8032]
     }
 
-    fn prelude(&mut self, _stream: &mut TlsStream<TlsClient, TcpStream>) -> Success {
+    fn prelude(&mut self, stream: &mut TlsStream<TlsClient, TcpStream>) -> Success {
+        stream.conn.complete_io(&mut stream.sock)?;
+
         Ok(())
     }
 
@@ -161,7 +164,7 @@ impl Http1Codec {
         body: &mut Vec<u8>,
         content_length: usize,
     ) -> Success {
-        let mut buffer = self.empty_buffer();
+        let mut buffer = vec![0; content_length];
         'stream: while 0 != stream.read(&mut buffer)? {
             let input = buffer.strip_null();
             body.extend(input.as_slice());

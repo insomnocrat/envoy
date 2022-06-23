@@ -118,6 +118,11 @@ impl Client {
         Request::new(InnerRequest::delete(&url), self)
     }
 
+    pub fn connect(&mut self, url: &str) -> Request {
+        let url = self.with_resource(url);
+        Request::new(InnerRequest::connect(&url), self)
+    }
+
     fn with_resource(&mut self, url: &str) -> String {
         match url.starts_with("/") {
             true => format!("{}{url}", self.config.base_url),

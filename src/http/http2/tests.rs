@@ -1,3 +1,4 @@
+use crate::http::request::headers::{values::ALL, ACCEPT};
 use crate::http::request::RequestBuilder;
 use crate::http::test_utils::*;
 use crate::http::HttpClient;
@@ -26,11 +27,13 @@ fn dummy_put() {
 }
 
 #[test]
-fn query_test() {
+fn downgrade_test() {
     let mut client = HttpClient::new();
     iterate_request(
         &mut client,
-        RequestBuilder::get(&format!("api.agify.io")).query(vec![("name", "isaac")]),
+        RequestBuilder::get(&format!("api.nationalize.io"))
+            .query(vec![("name", "isaac")])
+            .headers(vec![(ACCEPT, ALL)]),
         50,
         None,
     );
