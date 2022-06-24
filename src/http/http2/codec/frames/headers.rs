@@ -53,17 +53,7 @@ impl FramePayload for Headers {
                 }
                 false => (None, None, None, None),
             };
-
-        let (blocks, padding) = match &pad_length {
-            None => (iter.map(|b| *b).collect::<Vec<u8>>(), None),
-            Some(len) => (
-                iter.by_ref()
-                    .take(bytes.len() - *len as usize)
-                    .map(|b| *b)
-                    .collect::<Vec<u8>>(),
-                Some(iter.map(|b| *b).collect::<Vec<u8>>()),
-            ),
-        };
+        let (blocks, padding) = parse_blocks_and_pad_length(iter, &pad_length, bytes);
 
         Ok(Self {
             pad_length,

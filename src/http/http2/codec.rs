@@ -93,9 +93,12 @@ impl<'a> Codec for Http2Codec<'a> {
                 FrameKind::RstStream => self.handle_stream_reset(conn, frame_header)?,
                 FrameKind::GoAway => self.handle_go_away(conn, frame_header)?,
                 FrameKind::Ping => return self.receive_ping(conn, frame_header),
+                FrameKind::PushPromise => {
+                    if !self.settings.enable_push {
+                        self.send_go_away(conn)?;
+                    }
+                }
                 FrameKind::Priority => {}
-                FrameKind::PushPromise => {}
-
                 FrameKind::Altsvc => {}
                 FrameKind::Origin => {}
             }

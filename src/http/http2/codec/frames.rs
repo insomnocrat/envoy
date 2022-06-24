@@ -6,6 +6,7 @@ pub(crate) mod ping;
 pub(crate) mod rst_stream;
 pub(crate) mod settings;
 pub(crate) mod window_update;
+pub(crate) mod push_promise;
 
 pub type SettingsFrame = Frame<settings::Settings>;
 pub type HeadersFrame = Frame<headers::Headers>;
@@ -18,6 +19,7 @@ pub type PingFrame = Frame<ping::Ping>;
 
 use crate::http::{Error, Result};
 use std::fmt::{Debug, Display, Formatter};
+use std::slice::Iter;
 
 pub const END_STREAM: u8 = 0x1;
 pub const PADDED: u8 = 0x08;
@@ -295,4 +297,17 @@ fn encode_padding(
     }
 
     padding
+}
+
+fn parse_blocks_and_pad_length(mut iter: Iter<u8>, pad_length: &Option<u8>, bytes: &[u8]) -> (Vec<u8>, Option<Vec<u8>>) {
+    match &pad_length {
+        None => (iter.map(|b| *b).collect::<Vec<u8>>(), None),
+        Some(len) => (
+            iter.by_ref()
+                .take(bytes.len() - *len as usize)
+                .map(|b| *b)
+                .collect::<Vec<u8>>(),
+            Some(iter.map(|b| *b).collect::<Vec<u8>>()),
+        ),
+    }
 }
