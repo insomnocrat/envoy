@@ -309,6 +309,9 @@ impl Credentials {
     pub fn query(self) -> Self {
         Self::new(Placement::Query, self.kind, self.value_map)
     }
+    pub fn body_urlencoded(self) -> Self {
+        Self::new(Placement::UrlEncodedBody, self.kind, self.value_map)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
