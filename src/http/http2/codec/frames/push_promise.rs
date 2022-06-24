@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PushPromise {
     pad_length: Option<u8>,
     promised_stream_id: u32,

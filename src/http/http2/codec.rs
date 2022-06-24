@@ -94,11 +94,14 @@ impl<'a> Codec for Http2Codec<'a> {
                 FrameKind::GoAway => self.handle_go_away(conn, frame_header)?,
                 FrameKind::Ping => return self.receive_ping(conn, frame_header),
                 FrameKind::PushPromise => {
+                    let _: PushPromiseFrame = self.expect_payload(conn, frame_header)?;
                     if !self.settings.enable_push {
                         self.send_go_away(conn)?;
                     }
                 }
-                FrameKind::Priority => {}
+                FrameKind::Priority => {
+                    let _: PriorityFrame = self.expect_payload(conn, frame_header)?;
+                }
                 FrameKind::Altsvc => {}
                 FrameKind::Origin => {}
             }

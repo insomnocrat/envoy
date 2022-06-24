@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Copy)]
 pub struct Ping {
     opaque_data: u64,
 }

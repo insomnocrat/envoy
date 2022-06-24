@@ -3,10 +3,11 @@ pub(crate) mod data;
 pub(crate) mod go_away;
 pub(crate) mod headers;
 pub(crate) mod ping;
+pub(crate) mod priority;
+pub(crate) mod push_promise;
 pub(crate) mod rst_stream;
 pub(crate) mod settings;
 pub(crate) mod window_update;
-pub(crate) mod push_promise;
 
 pub type SettingsFrame = Frame<settings::Settings>;
 pub type HeadersFrame = Frame<headers::Headers>;
@@ -16,6 +17,8 @@ pub type GoAwayFrame = Frame<go_away::GoAway>;
 pub type RstStreamFrame = Frame<rst_stream::RstStream>;
 pub type ContinuationFrame = Frame<continuation::Continuation>;
 pub type PingFrame = Frame<ping::Ping>;
+pub type PushPromiseFrame = Frame<push_promise::PushPromise>;
+pub type PriorityFrame = Frame<priority::Priority>;
 
 use crate::http::{Error, Result};
 use std::fmt::{Debug, Display, Formatter};
@@ -299,7 +302,11 @@ fn encode_padding(
     padding
 }
 
-fn parse_blocks_and_pad_length(mut iter: Iter<u8>, pad_length: &Option<u8>, bytes: &[u8]) -> (Vec<u8>, Option<Vec<u8>>) {
+fn parse_blocks_and_pad_length(
+    mut iter: Iter<u8>,
+    pad_length: &Option<u8>,
+    bytes: &[u8],
+) -> (Vec<u8>, Option<Vec<u8>>) {
     match &pad_length {
         None => (iter.map(|b| *b).collect::<Vec<u8>>(), None),
         Some(len) => (
