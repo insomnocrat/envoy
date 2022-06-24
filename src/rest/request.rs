@@ -171,7 +171,19 @@ impl<'a> Request<'a> {
                 AuthMethod::Bearer => {
                     let mut access = match &self.client_ref.access {
                         Some(access) => access,
-                        None => return Err(Error::new("no bearer token", ErrorKind::Client, None)),
+                        None => {
+                            Self::refresh_access(&mut self.client_ref)?;
+                            match &self.client_ref.access {
+                                Some(access) => access,
+                                None => {
+                                    return Err(Error::new(
+                                        "no bearer token",
+                                        ErrorKind::Client,
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
                     };
                     if access.is_expired() {
                         Self::refresh_access(&mut self.client_ref)?;

@@ -24,7 +24,7 @@ rand = {version = "*", optional = true}
 
 
 [features]
-default = ["rest", "multipart", "http2"]
+default = ["rest", "multipart"]
 rest = ["serde_json", "serde", "serde_urlencoded"]
 multihost = []
 http2 = ["hpack"]
