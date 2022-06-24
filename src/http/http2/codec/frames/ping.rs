@@ -1,5 +1,4 @@
-use crate::http::http2::{Frame, FrameHeader, FrameKind, FramePayload};
-use crate::http::Error;
+use super::*;
 
 pub struct Ping {
     opaque_data: u64,

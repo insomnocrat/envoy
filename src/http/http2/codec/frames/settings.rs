@@ -1,5 +1,5 @@
+use super::*;
 use crate::http::http2::codec::StreamSettings;
-use crate::http::http2::*;
 use crate::http::{Error, Result};
 use std::fmt::{Display, Formatter};
 

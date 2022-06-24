@@ -1,5 +1,5 @@
 #[cfg(feature = "http2")]
-use crate::http::http2::ErrorCode;
+use crate::http::http2::codec::frames::ErrorCode;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::string::FromUtf8Error;

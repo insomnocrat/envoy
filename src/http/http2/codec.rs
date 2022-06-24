@@ -1,13 +1,7 @@
 use crate::http::codec::Codec;
 use crate::http::error::SomeError;
-use crate::http::http2::go_away::GoAway;
-use crate::http::http2::headers::Headers;
-use crate::http::http2::ping::Ping;
 use crate::http::http2::request::Request;
-use crate::http::http2::settings::*;
 use crate::http::http2::stream::{State, Stream};
-use crate::http::http2::window_update::WindowUpdate;
-use crate::http::http2::*;
 use crate::http::request::RequestBuilder;
 use crate::http::utf8_utils::UTF8Utils;
 use crate::http::Protocol::HTTP2;
@@ -17,6 +11,13 @@ use rustls::{ClientConnection, StreamOwned};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+pub mod frames;
+use crate::http::http2::codec::frames::go_away::GoAway;
+use crate::http::http2::codec::frames::headers::Headers;
+use crate::http::http2::codec::frames::ping::Ping;
+use crate::http::http2::codec::frames::settings::{Identifier, Setting};
+use crate::http::http2::codec::frames::window_update::WindowUpdate;
+use frames::*;
 
 pub struct Http2Codec<'a> {
     pub encoder: Encoder<'a>,

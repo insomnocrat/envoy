@@ -328,4 +328,10 @@ impl<'a> Request<'a> {
 
         self
     }
+
+    pub fn user_agent(mut self, agent: &str) -> Self {
+        self.inner.insert_header((USER_AGENT, agent.as_bytes()));
+
+        self
+    }
 }
