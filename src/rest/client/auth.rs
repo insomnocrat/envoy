@@ -56,7 +56,7 @@ pub struct Builder {
 impl Builder {
     pub fn new() -> Self {
         Builder {
-            method: Method::OTHER,
+            method: Method::Other,
             credentials: None,
             url: None,
             grant: None,
@@ -72,7 +72,7 @@ impl Builder {
     }
     pub fn basic(self) -> Self {
         Builder {
-            method: Method::BASIC,
+            method: Method::Basic,
             url: self.url,
             credentials: self.credentials,
             grant: self.grant,
@@ -80,7 +80,7 @@ impl Builder {
     }
     pub fn bearer(self) -> Self {
         Builder {
-            method: Method::BEARER,
+            method: Method::Bearer,
             url: self.url,
             credentials: self.credentials,
             grant: self.grant,
@@ -136,7 +136,7 @@ impl Builder {
     }
     pub fn oauth1(self, key: &str, token: &str) -> Self {
         Builder {
-            method: Method::OAUTH,
+            method: Method::OAuth,
             credentials: Some(Credentials::oauth1(key, token)),
             url: self.url,
             grant: self.grant,
@@ -265,7 +265,7 @@ impl Credentials {
     }
     pub fn oauth1(key: &str, token: &str) -> Self {
         Self::new(
-            Placement::HEADER,
+            Placement::Header,
             Kind::Oauth1,
             HashMap::from([
                 (OAUTH_CONSUMER_KEY.to_string(), key.to_string()),
@@ -301,13 +301,13 @@ impl Credentials {
         }
     }
     pub fn body(self) -> Self {
-        Self::new(Placement::BODY, self.kind, self.value_map)
+        Self::new(Placement::Body, self.kind, self.value_map)
     }
     pub fn header(self) -> Self {
-        Self::new(Placement::HEADER, self.kind, self.value_map)
+        Self::new(Placement::Header, self.kind, self.value_map)
     }
     pub fn query(self) -> Self {
-        Self::new(Placement::QUERY, self.kind, self.value_map)
+        Self::new(Placement::Query, self.kind, self.value_map)
     }
 }
 
@@ -336,22 +336,23 @@ impl Kind {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Placement {
-    BODY,
-    HEADER,
-    QUERY,
+    Body,
+    Header,
+    Query,
+    UrlEncodedBody,
 }
 impl Default for Placement {
     fn default() -> Self {
-        Self::HEADER
+        Self::Header
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum Method {
-    BASIC,
-    BEARER,
-    OAUTH,
-    OTHER,
+    Basic,
+    Bearer,
+    OAuth,
+    Other,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

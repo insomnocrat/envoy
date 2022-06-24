@@ -168,7 +168,7 @@ impl<'a> Request<'a> {
     fn set_auth(&mut self) -> Result<Success> {
         if let Some(auth) = &self.client_ref.config.auth {
             match &auth.method {
-                AuthMethod::BEARER => {
+                AuthMethod::Bearer => {
                     let mut access = match &self.client_ref.access {
                         Some(access) => access,
                         None => return Err(Error::new("no bearer token", ErrorKind::Client, None)),
@@ -184,11 +184,11 @@ impl<'a> Request<'a> {
                     }
                     Self::set_bearer_auth(&mut self.inner, &access.token);
                 }
-                AuthMethod::BASIC => {
+                AuthMethod::Basic => {
                     let (username, password) = auth.credentials.to_basic()?;
                     Self::set_basic_auth(&mut self.inner, username, password);
                 }
-                AuthMethod::OAUTH => {
+                AuthMethod::OAuth => {
                     let key = auth
                         .credentials
                         .value_map
@@ -205,8 +205,8 @@ impl<'a> Request<'a> {
                         })?;
                     Self::set_oauth1(&mut self.inner, key, token);
                 }
-                AuthMethod::OTHER => match &auth.credentials.placement {
-                    AuthPlacement::HEADER => {
+                AuthMethod::Other => match &auth.credentials.placement {
+                    AuthPlacement::Header => {
                         self.inner.extend_headers(
                             auth.credentials
                                 .value_map
@@ -215,7 +215,7 @@ impl<'a> Request<'a> {
                                 .collect(),
                         );
                     }
-                    AuthPlacement::BODY => self.inner.body_mut(
+                    AuthPlacement::Body => self.inner.body_mut(
                         serde_json::to_vec(&auth.credentials.value_map)
                             .map_err(|e| {
                                 Error::new(
@@ -226,13 +226,24 @@ impl<'a> Request<'a> {
                             })?
                             .as_slice(),
                     ),
-                    AuthPlacement::QUERY => {
+                    AuthPlacement::Query => {
                         let mut query_pairs = Vec::with_capacity(auth.credentials.value_map.len());
                         for (key, value) in auth.credentials.value_map.iter() {
                             query_pairs.push((key.as_bytes(), value.as_bytes()));
                         }
                         self.inner.extend_query(query_pairs);
                     }
+                    AuthPlacement::UrlEncodedBody => self.inner.body_mut(
+                        serde_urlencoded::to_string(&auth.credentials.value_map)
+                            .map_err(|e| {
+                                Error::new(
+                                    "could not url encode credentials",
+                                    ErrorKind::Client,
+                                    e.some_box(),
+                                )
+                            })?
+                            .as_bytes(),
+                    ),
                 },
             }
         }
@@ -246,7 +257,7 @@ impl<'a> Request<'a> {
             None => return Ok(()),
         };
         let mut auth_request = match &auth.method {
-            AuthMethod::BEARER => InnerRequest::post(&auth.url),
+            AuthMethod::Bearer => InnerRequest::post(&auth.url),
             _ => return Ok(()),
         };
         let credentials = match &auth.grant {
@@ -260,11 +271,11 @@ impl<'a> Request<'a> {
             None => &auth.credentials,
         };
         match &credentials.placement {
-            AuthPlacement::HEADER => {
+            AuthPlacement::Header => {
                 let (username, password) = credentials.to_basic()?;
                 Self::set_basic_auth(&mut auth_request, username, password);
             }
-            AuthPlacement::BODY => auth_request.body_mut(
+            AuthPlacement::Body => auth_request.body_mut(
                 serde_json::to_vec(&credentials.value_map)
                     .map_err(|e| {
                         Error::new(
@@ -275,13 +286,24 @@ impl<'a> Request<'a> {
                     })?
                     .as_slice(),
             ),
-            AuthPlacement::QUERY => {
+            AuthPlacement::Query => {
                 let mut query_pairs = Vec::with_capacity(credentials.value_map.len());
                 for (key, value) in credentials.value_map.iter() {
                     query_pairs.push((key.as_bytes(), value.as_bytes()));
                 }
                 auth_request.extend_query(query_pairs);
             }
+            AuthPlacement::UrlEncodedBody => auth_request.body_mut(
+                serde_urlencoded::to_string(&credentials.value_map)
+                    .map_err(|e| {
+                        Error::new(
+                            "could not url encode credentials",
+                            ErrorKind::Client,
+                            e.some_box(),
+                        )
+                    })?
+                    .as_bytes(),
+            ),
         };
         let response: Result<Response> = Response::from(
             client_ref
