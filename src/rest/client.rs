@@ -8,6 +8,9 @@ use interpreter::Interpreter;
 use std::thread;
 use std::time::Duration;
 
+#[cfg(feature = "http2")]
+pub use crate::http::Protocol::HTTP2;
+pub use crate::http::Protocol::{self, HTTP1};
 use crate::rest::client::config::Config;
 pub use crate::rest::client::config::ConfigBuilder;
 use crate::rest::{
@@ -95,32 +98,50 @@ impl Client {
 
     pub fn get(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::get(&url), self)
+        Request::new(
+            InnerRequest::get(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     pub fn post(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::post(&url), self)
+        Request::new(
+            InnerRequest::post(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     pub fn put(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::put(&url), self)
+        Request::new(
+            InnerRequest::put(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     pub fn patch(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::patch(&url), self)
+        Request::new(
+            InnerRequest::patch(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     pub fn delete(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::delete(&url), self)
+        Request::new(
+            InnerRequest::delete(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     pub fn connect(&mut self, url: &str) -> Request {
         let url = self.with_resource(url);
-        Request::new(InnerRequest::connect(&url), self)
+        Request::new(
+            InnerRequest::connect(&url).protocol(self.config.default_protocol),
+            self,
+        )
     }
 
     fn with_resource(&mut self, url: &str) -> String {
@@ -128,6 +149,13 @@ impl Client {
             true => format!("{}{url}", self.config.base_url),
             false => format!("{}/{url}", self.config.base_url),
         }
+    }
+
+    #[cfg(feature = "http2")]
+    pub fn set_http1(&mut self) -> Result<Success> {
+        self.inner
+            .connect_proto(&self.config.base_url, Protocol::HTTP1)
+            .map_err(|e| Error::from(e))
     }
 
     #[cfg(feature = "interpreter")]

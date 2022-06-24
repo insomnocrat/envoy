@@ -40,6 +40,8 @@ impl From<HttpError> for Error {
             | HttpErrorKind::Protocol => Kind::Protocol,
             HttpErrorKind::Server => Kind::Server,
             HttpErrorKind::Connection(_) => Kind::Connection,
+            #[cfg(feature = "http2")]
+            HttpErrorKind::Http2Protocol(_) => Kind::Protocol,
         };
 
         Self::new(&message, kind, e.some_box())

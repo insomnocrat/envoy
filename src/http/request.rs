@@ -1,5 +1,6 @@
 use super::{Method, Protocol};
-use crate::http::utf8_utils::{UTF8Utils, EQUALS, QMARK, SLASH};
+use crate::http::url::Url;
+use crate::http::utf8_utils::EQUALS;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -120,7 +121,6 @@ impl RequestBuilder {
         }
     }
 
-    #[cfg(feature = "http2")]
     pub fn protocol(self, protocol: Protocol) -> Self {
         Self {
             protocol,
@@ -128,50 +128,6 @@ impl RequestBuilder {
             url: self.url,
             body: self.body,
             headers: self.headers,
-        }
-    }
-}
-
-const SCHEME: &[u8] = b"https://";
-const AUTHORITY: &[u8] = b"www.";
-
-#[derive(Clone, Debug)]
-pub struct Url {
-    pub host: Vec<u8>,
-    pub resource: Vec<u8>,
-    pub query: Vec<u8>,
-}
-
-impl Url {
-    pub(crate) fn authority(&self) -> String {
-        format!("{}:443", self.host.as_utf8_lossy())
-    }
-}
-
-impl From<&[u8]> for Url {
-    fn from(mut value: &[u8]) -> Self {
-        if value.starts_with(SCHEME) {
-            value = &value[7..];
-        }
-        if value.starts_with(AUTHORITY) {
-            value = &value[3..];
-        }
-        let mut host = Vec::with_capacity(2048);
-        let mut resource = Vec::new();
-        let mut query = Vec::new();
-        let mut value = value.iter().peekable();
-        while let Some(byte) = value.next_if(|b| **b != SLASH) {
-            host.push(*byte);
-        }
-        while let Some(byte) = value.next_if(|b| **b != QMARK) {
-            resource.push(*byte);
-        }
-        query.extend(value);
-
-        Self {
-            host,
-            resource,
-            query,
         }
     }
 }

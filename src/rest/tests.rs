@@ -1,4 +1,5 @@
 mod models;
+
 use models::*;
 
 use crate::http::test_utils::print_results;
@@ -183,6 +184,40 @@ fn pre_connect() {
         let start = time::Instant::now();
         dummy_api_client();
         let end = time::Instant::now().duration_since(start);
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[cfg(feature = "http2")]
+#[test]
+fn http2_test() {
+    let mut results = Vec::with_capacity(25);
+    let mut client = Client::config().base_url("http2.pro").preconnect().unwrap();
+    for _ in 0..26 {
+        let start = time::Instant::now();
+        let result: Http2TestBody = client.get("api/v1").expect_json().unwrap();
+        let end = time::Instant::now().duration_since(start);
+        assert_eq!(result.http2, 1);
+        results.push(end);
+    }
+    print_results(results);
+}
+
+#[cfg(feature = "http2")]
+#[test]
+fn http1_test() {
+    let mut results = Vec::with_capacity(25);
+    let mut client = Client::config()
+        .base_url("http2.pro")
+        .http1_only()
+        .preconnect()
+        .unwrap();
+    for _ in 0..26 {
+        let start = time::Instant::now();
+        let result: Http2TestBody = client.get("api/v1").expect_json().unwrap();
+        let end = time::Instant::now().duration_since(start);
+        assert_eq!(result.http2, 0);
         results.push(end);
     }
     print_results(results);

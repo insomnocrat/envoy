@@ -34,7 +34,7 @@ pub(crate) fn iterate_request(
     repeat: usize,
     evaluation: Option<Box<dyn Fn(Response) -> bool>>,
 ) {
-    client.connect(&request.url.authority()).unwrap();
+    client.connect(&request.url).unwrap();
     let evaluation = match evaluation {
         Some(e) => e,
         None => {

@@ -1,4 +1,8 @@
+use crate::http::url::Url;
+use crate::http::Protocol;
 use crate::rest::client::auth::Grant;
+#[cfg(feature = "http2")]
+use crate::rest::client::HTTP1;
 use crate::rest::client::{Auth, AuthBuilder};
 use crate::rest::{Client, Error, Result};
 use std::collections::HashMap;
@@ -6,8 +10,9 @@ use std::collections::HashMap;
 pub struct Config {
     pub auth: Option<Auth>,
     pub backoff_proc: BackOffProcedure,
-    pub base_url: String,
+    pub base_url: Url,
     pub required_headers: HashMap<String, String>,
+    pub default_protocol: Protocol,
 }
 
 impl From<ConfigBuilder> for Config {
@@ -20,6 +25,7 @@ impl From<ConfigBuilder> for Config {
             backoff_proc: builder.backoff_proc,
             base_url: builder.base_url,
             required_headers: builder.required_headers,
+            default_protocol: builder.default_protocol,
         }
     }
 }
@@ -27,17 +33,19 @@ impl From<ConfigBuilder> for Config {
 pub struct ConfigBuilder {
     pub(crate) auth: Option<AuthBuilder>,
     pub(crate) backoff_proc: BackOffProcedure,
-    pub(crate) base_url: String,
+    pub(crate) base_url: Url,
     pub(crate) required_headers: HashMap<String, String>,
+    pub(crate) default_protocol: Protocol,
 }
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             backoff_proc: BackOffProcedure::default(),
-            base_url: "".to_string(),
+            base_url: "".into(),
             required_headers: Default::default(),
             auth: None,
+            default_protocol: Default::default(),
         }
     }
 }
@@ -46,9 +54,10 @@ impl From<&str> for ConfigBuilder {
     fn from(base_url: &str) -> Self {
         Self {
             backoff_proc: Default::default(),
-            base_url: base_url.to_string(),
+            base_url: base_url.into(),
             required_headers: Default::default(),
             auth: None,
+            default_protocol: Default::default(),
         }
     }
 }
@@ -64,10 +73,20 @@ impl ConfigBuilder {
         let mut client = self.build();
         client
             .inner
-            .connect(&format!("{}:443", client.config.base_url))
+            .connect_proto(&client.config.base_url, client.config.default_protocol)
             .map_err(|e| Error::from(e))?;
-        
+
         Ok(client)
+    }
+    #[cfg(feature = "http2")]
+    pub fn http1_only(self) -> Self {
+        Self {
+            backoff_proc: self.backoff_proc,
+            base_url: self.base_url,
+            required_headers: self.required_headers,
+            auth: self.auth,
+            default_protocol: HTTP1,
+        }
     }
     pub fn backoff(self, proc: BackOffProcedure) -> Self {
         Self {
@@ -75,14 +94,16 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: self.auth,
+            default_protocol: self.default_protocol,
         }
     }
     pub fn base_url(self, url: &str) -> Self {
         Self {
             backoff_proc: self.backoff_proc,
-            base_url: url.to_string(),
+            base_url: url.into(),
             required_headers: self.required_headers,
             auth: self.auth,
+            default_protocol: self.default_protocol,
         }
     }
     pub fn required_headers(self, headers: &[(&str, &str)]) -> Self {
@@ -94,6 +115,7 @@ impl ConfigBuilder {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
             auth: self.auth,
+            default_protocol: self.default_protocol,
         }
     }
     pub fn required_header(mut self, header: (&str, &str)) -> Self {
@@ -105,6 +127,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: self.auth,
+            default_protocol: self.default_protocol,
         }
     }
     pub fn auth(self, auth: AuthBuilder) -> Self {
@@ -113,6 +136,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -123,6 +147,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -133,6 +158,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -143,6 +169,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -153,6 +180,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -163,6 +191,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -173,6 +202,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -183,6 +213,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -193,6 +224,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -203,6 +235,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -213,6 +246,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 
@@ -223,6 +257,7 @@ impl ConfigBuilder {
             base_url: self.base_url,
             required_headers: self.required_headers,
             auth: Some(auth),
+            default_protocol: self.default_protocol,
         }
     }
 

@@ -136,6 +136,13 @@ impl PooledConn {
             None => Ok(None),
         }
     }
+
+    #[cfg(feature = "http2")]
+    pub fn ping_inner(&mut self) -> Success {
+        let request = RequestBuilder::connect("ping");
+        
+        self.send_request(request)
+    }
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]

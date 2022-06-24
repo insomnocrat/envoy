@@ -1,6 +1,8 @@
+pub(crate) mod continuation;
 pub(crate) mod data;
 pub(crate) mod go_away;
 pub(crate) mod headers;
+pub(crate) mod ping;
 pub(crate) mod rst_stream;
 pub(crate) mod settings;
 pub(crate) mod window_update;
@@ -11,6 +13,8 @@ pub type DataFrame = Frame<data::Data>;
 pub type WindowUpdateFrame = Frame<window_update::WindowUpdate>;
 pub type GoAwayFrame = Frame<go_away::GoAway>;
 pub type RstStreamFrame = Frame<rst_stream::RstStream>;
+pub type ContinuationFrame = Frame<continuation::Continuation>;
+pub type PingFrame = Frame<ping::Ping>;
 
 use crate::http::{Error, Result};
 use std::fmt::{Debug, Display, Formatter};
@@ -128,6 +132,7 @@ pub(crate) const PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 pub trait FramePayload: Sized {
     fn parse(bytes: &[u8], flags: u8) -> Result<Self>;
     fn encode(self) -> Vec<u8>;
+    fn is_malformed(&self) -> bool;
 }
 
 #[derive(Clone, Debug)]
@@ -224,6 +229,18 @@ impl FrameHeader {
         bytes.extend(self.stream_identifier.to_be_bytes());
 
         bytes
+    }
+    pub fn is_malformed(&self) -> bool {
+        match self.kind {
+            FrameKind::Data
+            | FrameKind::Headers
+            | FrameKind::Continuation
+            | FrameKind::Priority
+            | FrameKind::RstStream
+            | FrameKind::PushPromise => self.stream_identifier == 0,
+            FrameKind::Setting | FrameKind::GoAway | FrameKind::Ping => self.stream_identifier != 0,
+            _ => false,
+        }
     }
 }
 

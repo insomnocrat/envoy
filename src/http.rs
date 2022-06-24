@@ -14,6 +14,7 @@ pub mod request;
 pub mod status;
 #[cfg(test)]
 pub(crate) mod test_utils;
+pub mod url;
 pub mod utf8_utils;
 
 use crate::http::error::ErrorKind;

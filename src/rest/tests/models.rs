@@ -41,3 +41,11 @@ pub struct Location {
     pub country: String,
     pub timezone: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Http2TestBody {
+    pub http2: u8,
+    pub protocol: String,
+    pub push: u8,
+    pub user_agent: String,
+}

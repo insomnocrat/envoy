@@ -90,6 +90,10 @@ impl FramePayload for Headers {
 
         bytes
     }
+
+    fn is_malformed(&self) -> bool {
+        false
+    }
 }
 
 #[repr(u8)]

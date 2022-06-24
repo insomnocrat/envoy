@@ -98,6 +98,13 @@ impl Setting {
 
         encoded
     }
+    fn is_malformed(&self) -> bool {
+        match &self.identifier {
+            Identifier::InitialWindowSize => self.value > 2147483647,
+            Identifier::MaxFrameSize => self.value > 16777215,
+            _ => false,
+        }
+    }
 }
 
 impl FramePayload for Settings {
@@ -117,6 +124,16 @@ impl FramePayload for Settings {
         }
 
         bytes
+    }
+
+    fn is_malformed(&self) -> bool {
+        for setting in self.iter() {
+            if setting.is_malformed() {
+                return true;
+            }
+        }
+
+        false
     }
 }
 

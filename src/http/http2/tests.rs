@@ -38,3 +38,13 @@ fn downgrade_test() {
         None,
     );
 }
+
+#[test]
+fn ping() {
+    let mut client = HttpClient::new();
+    let url = "http2.pro/api/v1".into();
+    client.connect(&url).unwrap();
+    for _ in 0..25 {
+        assert!(client.ping().is_ok());
+    }
+}

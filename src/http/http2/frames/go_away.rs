@@ -7,6 +7,24 @@ pub struct GoAway {
     pub additional_debug_data: Vec<u8>,
 }
 
+impl GoAway {
+    pub fn new(error_code: ErrorCode, additional_debug_data: Option<Vec<u8>>) -> Self {
+        let additional_debug_data = match additional_debug_data {
+            Some(i) => i,
+            None => Vec::new(),
+        };
+
+        Self {
+            last_stream_id: 0,
+            error_code,
+            additional_debug_data,
+        }
+    }
+    pub fn to_frame(self) -> Frame<Self> {
+        Frame::new(FrameHeader::new(FrameKind::GoAway, 0, 0), self)
+    }
+}
+
 impl FramePayload for GoAway {
     fn parse(bytes: &[u8], _flags: u8) -> Result<Self> {
         let additional_debug_data = match bytes.len() > 8 {
@@ -27,5 +45,9 @@ impl FramePayload for GoAway {
         bytes.extend(self.additional_debug_data);
 
         bytes
+    }
+
+    fn is_malformed(&self) -> bool {
+        false
     }
 }

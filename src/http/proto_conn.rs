@@ -17,11 +17,8 @@ pub(crate) type Inner = TlsStream<TlsClient, TcpStream>;
 #[cfg(feature = "http2")]
 pub const H2: &[u8] = b"h2";
 pub const H1: &[u8] = b"http/1.1";
-pub const ALPN: &[&[u8]] = &[
-    #[cfg(feature = "http2")]
-    H2,
-    H1,
-];
+#[cfg(feature = "http2")]
+pub const ALPN: &[&[u8]] = &[H2, H1];
 
 pub struct ProtoConn {
     pub(crate) inner: Inner,
@@ -31,10 +28,15 @@ pub struct ProtoConn {
 
 impl ProtoConn {
     pub fn new(authority: &str, protocol: Protocol) -> Result<Self> {
+        let alpn = match protocol {
+            Protocol::HTTP1 => &[H1],
+            #[cfg(feature = "http2")]
+            Protocol::HTTP2 => ALPN,
+        };
         let stream = TcpStream::connect(authority)?;
         let tls_client = Self::config_tls(
             authority.trim_end_matches(|c: char| c == ':' || c.is_numeric()),
-            ALPN,
+            alpn,
         )?;
         let mut conn = match protocol {
             Protocol::HTTP1 => Self {

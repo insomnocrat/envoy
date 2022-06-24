@@ -37,4 +37,11 @@ impl FramePayload for WindowUpdate {
     fn encode(self) -> Vec<u8> {
         self.window_size_increment.to_be_bytes().to_vec()
     }
+
+    fn is_malformed(&self) -> bool {
+        match self.window_size_increment {
+            0 => true,
+            _ => false,
+        }
+    }
 }

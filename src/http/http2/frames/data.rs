@@ -38,4 +38,13 @@ impl FramePayload for Data {
 
         bytes
     }
+
+    fn is_malformed(&self) -> bool {
+        if let Some(pad_length) = &self.pad_length {
+            if *pad_length > self.blocks.len() as u8 {
+                return true;
+            }
+        }
+        false
+    }
 }

@@ -1,6 +1,8 @@
 use crate::http::codec::Codec;
 use crate::http::error::SomeError;
+use crate::http::http2::go_away::GoAway;
 use crate::http::http2::headers::Headers;
+use crate::http::http2::ping::Ping;
 use crate::http::http2::request::Request;
 use crate::http::http2::settings::*;
 use crate::http::http2::stream::{State, Stream};
@@ -27,6 +29,9 @@ pub struct Http2Codec<'a> {
 
 impl<'a> Codec for Http2Codec<'a> {
     fn encode_request(&mut self, request: RequestBuilder) -> Result<Vec<u8>> {
+        if request.url.host.eq(b"ping") {
+            return Ok(self.encode_ping());
+        }
         let request = Request::from(request);
         let mut encoded = self.encode_header_frame(&request.raw_headers, request.data.is_some());
         if let Some(data) = request.data {
@@ -41,6 +46,7 @@ impl<'a> Codec for Http2Codec<'a> {
 
         Ok(encoded)
     }
+
     fn decode_response(
         &mut self,
         conn: &mut StreamOwned<ClientConnection, TcpStream>,
@@ -48,6 +54,9 @@ impl<'a> Codec for Http2Codec<'a> {
         let mut stream = Stream::new(self.last_stream);
         while !stream.is_closed() {
             let frame_header = self.expect_frame_header(conn)?;
+            if frame_header.is_malformed() {
+                self.send_go_away(conn)?;
+            }
             if frame_header.length >= self.client_window_size {
                 self.update_window(conn)?;
             }
@@ -55,6 +64,9 @@ impl<'a> Codec for Http2Codec<'a> {
             match frame_header.kind {
                 FrameKind::Headers => {
                     let headers: HeadersFrame = self.expect_payload(conn, frame_header)?;
+                    if headers.payload.is_malformed() {
+                        self.send_go_away(conn)?;
+                    }
                     if headers.is_stream_end() {
                         stream.state = State::Closed;
                     }
@@ -62,19 +74,27 @@ impl<'a> Codec for Http2Codec<'a> {
                 }
                 FrameKind::Data => {
                     let data: DataFrame = self.expect_payload(conn, frame_header)?;
+                    if data.payload.is_malformed() {
+                        self.send_go_away(conn)?;
+                    }
                     if data.is_stream_end() {
                         stream.state = State::Closed;
                     }
                     stream.response_data.extend(data.payload.blocks);
                 }
+                FrameKind::Continuation => {
+                    let continuation: ContinuationFrame =
+                        self.expect_payload(conn, frame_header)?;
+                    stream.response_headers.extend(continuation.payload.blocks);
+                }
                 FrameKind::Setting => self.update_settings(conn, frame_header)?,
                 FrameKind::WindowUpdate => self.handle_window_update(conn, frame_header)?,
                 FrameKind::RstStream => self.handle_stream_reset(conn, frame_header)?,
                 FrameKind::GoAway => self.handle_go_away(conn, frame_header)?,
+                FrameKind::Ping => return self.receive_ping(conn, frame_header),
                 FrameKind::Priority => {}
                 FrameKind::PushPromise => {}
-                FrameKind::Ping => {}
-                FrameKind::Continuation => {}
+
                 FrameKind::Altsvc => {}
                 FrameKind::Origin => {}
             }
@@ -208,6 +228,7 @@ impl<'a> Http2Codec<'a> {
         let status_code = headers
             .get(":status")
             .ok_or_else(|| Error::server("malformed response"))?;
+
         Ok(Response {
             protocol: Default::default(),
             status_code: self.decode_status(status_code.as_bytes())?,
@@ -231,7 +252,10 @@ impl<'a> Http2Codec<'a> {
         if frame_header.length == 0 && frame_header.flags & 0x1 != 0 {
             return Ok(());
         }
-        let frame = self.expect_payload(stream, frame_header)?;
+        let frame: SettingsFrame = self.expect_payload(stream, frame_header)?;
+        if frame.payload.is_malformed() {
+            self.send_go_away(stream)?;
+        }
         self.settings.update(frame.payload);
 
         Self::ack_settings(stream)
@@ -243,20 +267,52 @@ impl<'a> Http2Codec<'a> {
         frame_header: FrameHeader,
     ) -> Success {
         let frame: WindowUpdateFrame = self.expect_payload(stream, frame_header)?;
+        if frame.payload.is_malformed() {
+            self.send_go_away(stream)?;
+        }
         self.server_window_size = frame.payload.window_size_increment;
 
         Ok(())
     }
 
-    fn update_window(&mut self, conn: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
+    fn update_window(&mut self, stream: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
         self.client_window_size += self.settings.initial_window_size * 4;
         let frame = WindowUpdate::new(self.client_window_size)
             .to_frame()
             .encode();
-        conn.write_all(&frame)?;
-        conn.flush()?;
+        stream.write_all(&frame)?;
+        stream.flush()?;
 
         Ok(())
+    }
+
+    pub fn encode_ping(&mut self) -> Vec<u8> {
+        Ping::new(192837465).to_frame().encode()
+    }
+
+    pub fn receive_ping(
+        &mut self,
+        stream: &mut StreamOwned<ClientConnection, TcpStream>,
+        frame_header: FrameHeader,
+    ) -> Result<Response> {
+        if frame_header.flags & ping::Flags::Ack as u8 == 0x0 {
+            return Err(Error::http2(
+                "received malformed frame",
+                ErrorCode::ProtocolError,
+            ));
+        }
+        let _: PingFrame = self.expect_payload(stream, frame_header)?;
+        let received = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("ping traveled backwards in time")
+            .as_millis();
+
+        Ok(Response {
+            protocol: Default::default(),
+            status_code: 200,
+            headers: Default::default(),
+            body: received.to_be_bytes().to_vec(),
+        })
     }
 
     fn handle_stream_reset(
@@ -291,6 +347,16 @@ impl<'a> Http2Codec<'a> {
             &error_message,
             frame.payload.error_code.some_box(),
         ))
+    }
+
+    fn send_go_away(&mut self, stream: &mut StreamOwned<ClientConnection, TcpStream>) -> Success {
+        let frame = GoAway::new(ErrorCode::ConnectError, None)
+            .to_frame()
+            .encode();
+        stream.write_all(&frame)?;
+        stream.flush()?;
+
+        Err(Error::server("received malformed frame"))
     }
 
     fn try_read_buf<T>(

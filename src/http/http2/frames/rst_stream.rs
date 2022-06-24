@@ -17,4 +17,8 @@ impl FramePayload for RstStream {
     fn encode(self) -> Vec<u8> {
         self.error_code.to_be_bytes().to_vec()
     }
+
+    fn is_malformed(&self) -> bool {
+        false
+    }
 }

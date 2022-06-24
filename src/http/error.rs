@@ -1,3 +1,5 @@
+#[cfg(feature = "http2")]
+use crate::http::http2::ErrorCode;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::string::FromUtf8Error;
@@ -39,6 +41,11 @@ impl Error {
     pub fn protocol(message: &str) -> Self {
         Self::new(message, ErrorKind::Protocol)
     }
+
+    #[cfg(feature = "http2")]
+    pub fn http2(message: &str, code: ErrorCode) -> Self {
+        Self::new(message, ErrorKind::Http2Protocol(code))
+    }
 }
 
 impl Display for Error {
@@ -57,6 +64,8 @@ pub enum ErrorKind {
     Server,
     Connection(Option<Box<dyn Any + Send>>),
     Protocol,
+    #[cfg(feature = "http2")]
+    Http2Protocol(ErrorCode),
 }
 
 pub trait SomeError {
